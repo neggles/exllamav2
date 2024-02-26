@@ -29,6 +29,7 @@ dependencies = [
   "pygments",
   "websockets",
   "regex",
+  "setuptools_scm>=8",
 ]
 
 [build-system]

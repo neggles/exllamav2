@@ -3,6 +3,7 @@ from os import getenv
 from pathlib import Path
 
 from setuptools import setup
+from setuptools_scm import get_version
 from torch import version as torch_version
 from torch.utils.cpp_extension import (
     BuildExtension,
@@ -67,4 +68,5 @@ setup(
     if do_compile
     else None,  # if not compiling, do not include the extension, but still run the setup
     cmdclass={"build_ext": BuildExtension},
+    version=get_version(),
 )
