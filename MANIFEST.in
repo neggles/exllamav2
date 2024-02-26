@@ -1,3 +1,12 @@
-recursive-include exllamav2 *
-global-exclude *.pyc
-global-exclude dni_*
+# setuptools_scm will grab all tracked files, minus these exclusions
+prune .vscode
+prune misc
+prune temp
+
+# some of these are redundant with setuptools-scm but it's good to be explicit
+global-exclude *~ *.py[cod] *.so __pycache__
+global-exclude .DS_Store
+global-exclude .gitignore .gitattributes .gitmodules
+
+# likewise the README etc are tracked files but may as well
+include *.md

@@ -1,117 +1,70 @@
-from setuptools import setup, Extension
-from torch.utils import cpp_extension
+import sys
+from os import getenv
+from pathlib import Path
+
+from setuptools import setup
 from torch import version as torch_version
-import os
+from torch.utils.cpp_extension import (
+    BuildExtension,
+    CUDAExtension,
+)
 
-extension_name = "exllamav2_ext"
-verbose = False
-ext_debug = False
+script_dir = Path(__file__).parent.resolve()
 
-precompile = 'EXLLAMA_NOCOMPILE' not in os.environ
+do_compile = getenv("EXLLAMA_NOCOMPILE") is None
+ext_debug = getenv("EXLLAMA_DEBUG") is not None
+nvcc_threads = getenv("NVCC_THREADS", "4")
 
-windows = (os.name == "nt")
+## Assemble C/CPP compiler flags
+if sys.platform == "win32":
+    print("Windows build")
+    cxx_flags = ["-Ox"]
+    nvcc_flags = [
+        "-Xcompiler",
+        "/Zc:lambda",
+        "-Xcompiler",
+        "/Zc:preprocessor",
+    ]
+    libraries = ["cublas"]
+else:
+    print("Linux/macOS build")
+    cxx_flags = ["-O3"]
+    nvcc_flags = []
+    libraries = []
 
-extra_cflags = ["/Ox"] if windows else ["-O3"]
-
+## Assemble CUDA compiler flags
+nvcc_flags += ["--threads", nvcc_threads, "-lineinfo", "-O3"]
+if torch_version.hip is not None:
+    print("HIP/ROCm build")
+    nvcc_flags += ["-DHIPBLAS_USE_HIP_HALF"]
 if ext_debug:
-    extra_cflags += ["-ftime-report", "-DTORCH_USE_CUDA_DSA"]
+    print("Debug build mode, enabling time reporting and DSA support")
+    nvcc_flags += [
+        "--ptxas-options=-v",
+        "-ftime-report",
+        "-DTORCH_USE_CUDA_DSA",
+    ]
 
-extra_cuda_cflags = ["-lineinfo", "-O3"]
+## Generate list of extension sources
+ext_dir = script_dir.joinpath("exllamav2", "exllamav2_ext")
+ext_sources = [
+    str(x.relative_to(script_dir))
+    for x in ext_dir.rglob("**/*")
+    if x.is_file() and x.suffix.lower() in [".cpp", ".cu"]
+]
 
-if torch_version.hip:
-    extra_cuda_cflags += ["-DHIPBLAS_USE_HIP_HALF"]
-
-extra_compile_args = {
-    "cxx": extra_cflags,
-    "nvcc": extra_cuda_cflags,
-}
-
-setup_kwargs = {
-    "ext_modules": [
-        cpp_extension.CUDAExtension(
-            extension_name,
-            [
-                "exllamav2/exllamav2_ext/ext_bindings.cpp",
-                "exllamav2/exllamav2_ext/ext_cache.cpp",
-                "exllamav2/exllamav2_ext/ext_gemm.cpp",
-                "exllamav2/exllamav2_ext/ext_norm.cpp",
-                "exllamav2/exllamav2_ext/ext_qattn.cpp",
-                "exllamav2/exllamav2_ext/ext_qmatrix.cpp",
-                "exllamav2/exllamav2_ext/ext_qmlp.cpp",
-                "exllamav2/exllamav2_ext/ext_quant.cpp",
-                "exllamav2/exllamav2_ext/ext_rope.cpp",
-                "exllamav2/exllamav2_ext/ext_safetensors.cpp",
-                "exllamav2/exllamav2_ext/ext_sampling.cpp",
-                "exllamav2/exllamav2_ext/cuda/h_add.cu",
-                "exllamav2/exllamav2_ext/cuda/h_gemm.cu",
-                "exllamav2/exllamav2_ext/cuda/lora.cu",
-                "exllamav2/exllamav2_ext/cuda/pack_tensor.cu",
-                "exllamav2/exllamav2_ext/cuda/quantize.cu",
-                "exllamav2/exllamav2_ext/cuda/q_matrix.cu",
-                "exllamav2/exllamav2_ext/cuda/q_attn.cu",
-                "exllamav2/exllamav2_ext/cuda/q_mlp.cu",
-                "exllamav2/exllamav2_ext/cuda/q_gemm.cu",
-                "exllamav2/exllamav2_ext/cuda/rms_norm.cu",
-                "exllamav2/exllamav2_ext/cuda/layer_norm.cu",
-                "exllamav2/exllamav2_ext/cuda/rope.cu",
-                "exllamav2/exllamav2_ext/cuda/cache.cu",
-                "exllamav2/exllamav2_ext/cuda/util.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/kernel_select.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_gptq_1.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_gptq_2.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_gptq_3.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_1a.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_1b.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_2a.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_2b.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_3a.cu",
-                "exllamav2/exllamav2_ext/cuda/comp_units/unit_exl2_3b.cu",
-                "exllamav2/exllamav2_ext/cpp/quantize_func.cpp",
-                "exllamav2/exllamav2_ext/cpp/sampling.cpp",
-                "exllamav2/exllamav2_ext/cpp/safetensors.cpp"
-            ],
-            extra_compile_args=extra_compile_args,
-            libraries=["cublas"] if windows else [],
-        )],
-    "cmdclass": {"build_ext": cpp_extension.BuildExtension}
-} if precompile else {}
-
-version_py = {}
-with open("exllamav2/version.py", encoding = "utf8") as fp:
-    exec(fp.read(), version_py)
-version = version_py["__version__"]
-print("Version:", version)
-
-# version = "0.0.5"
-
+## Actual setup process
 setup(
-    name = "exllamav2",
-    version = version,
-    packages = [
-        "exllamav2",
-        "exllamav2.generator",
-        # "exllamav2.generator.filters",
-        # "exllamav2.server",
-        # "exllamav2.exllamav2_ext",
-        # "exllamav2.exllamav2_ext.cpp",
-        # "exllamav2.exllamav2_ext.cuda",
-        # "exllamav2.exllamav2_ext.cuda.quant",
-    ],
-    url = "https://github.com/turboderp/exllamav2",
-    license = "MIT",
-    author = "turboderp",
-    install_requires = [
-        "pandas",
-        "ninja",
-        "fastparquet",
-        "torch>=2.0.1",
-        "safetensors>=0.3.2",
-        "sentencepiece>=0.1.97",
-        "pygments",
-        "websockets",
-        "regex"
-    ],
-    include_package_data = True,
-    verbose = verbose,
-    **setup_kwargs,
+    ext_modules=[
+        CUDAExtension(
+            name="exllamav2_ext",  # as it would be imported
+            # may include packages/namespaces separated by `.`
+            sources=ext_sources,  # all sources are compiled into a single binary file
+            extra_compile_args={"cxx": cxx_flags, "nvcc": nvcc_flags},
+            libraries=libraries,
+        ),
+    ]
+    if do_compile
+    else None,  # if not compiling, do not include the extension, but still run the setup
+    cmdclass={"build_ext": BuildExtension},
 )

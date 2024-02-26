@@ -232,6 +232,9 @@ $RECYCLE.BIN/
 # produced by `pip install -e .`
 exllamav2_ext.cpython-*.so
 
+# setuptools-scm version file
+/exllamav2/version.py
+
 # direnv
 .envrc
 .envrc.*
