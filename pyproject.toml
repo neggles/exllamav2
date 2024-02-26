@@ -37,8 +37,6 @@ requires = [
   "setuptools>=64",
   "wheel",
   "setuptools_scm>=8",
-  "torch>=2.0.1",
-  "ninja",
 ]
 
 [tool.setuptools_scm]
