@@ -1,10 +1,12 @@
-import torch
+from typing import Optional
+
 from torch import nn
+
 from exllamav2.module import ExLlamaV2Module
 
-class ExLlamaV2Embedding(ExLlamaV2Module):
 
-    embedding: nn.Embedding or None = None
+class ExLlamaV2Embedding(ExLlamaV2Module):
+    embedding: Optional[nn.Embedding] = None
 
     name: str = "Embedding"
     native_vocab_size: int = None
@@ -12,9 +14,7 @@ class ExLlamaV2Embedding(ExLlamaV2Module):
     def __init__(self, model, key):
         super().__init__(model, key)
 
-
     def load(self):
-
         vocab_size = self.model.config.vocab_size
         hidden_size = self.model.config.hidden_size
         pad_token_id = self.model.config.pad_token_id
@@ -30,50 +30,39 @@ class ExLlamaV2Embedding(ExLlamaV2Module):
         # if not torch.is_grad_enabled():
         #     w[pad_id] *= 0
 
-        self.embedding = nn.Embedding(vocab_size, hidden_size, pad_token_id, device ="meta")
+        self.embedding = nn.Embedding(vocab_size, hidden_size, pad_token_id, device="meta")
         self.embedding.weight = w
 
-
     def unload(self):
-
         del self.embedding
         self.embedding = None
 
-
     def get_weight(self):
-
         return self.embedding.weight.data
 
-
     def weight_footprint(self):
-
         vocab_size = self.model.config.vocab_size
         hidden_size = self.model.config.hidden_size
         kv_size = self.model.config.num_key_value_heads * self.model.config.head_dim
 
         return vocab_size * hidden_size * 2
 
-
     def scratch_space_fixed(self):
-
         return 0
-
 
     def scratch_space(self):
-
         return 0
 
-
-    def forward(self, hidden_states, cache = None, attn_params = None, past_len = None, intermediates = False, loras = None):
-
+    def forward(
+        self, hidden_states, cache=None, attn_params=None, past_len=None, intermediates=False, loras=None
+    ):
         hidden_states = self.embedding.forward(hidden_states)
 
         # Normalize the input embeddings for Gemma
         if self.model.config.architecture == "Gemma":
-            hidden_states = hidden_states * (self.model.config.hidden_size ** 0.5)
+            hidden_states = hidden_states * (self.model.config.hidden_size**0.5)
 
         if intermediates:
             return {"hidden_states": hidden_states}
         else:
             return hidden_states
-

@@ -1,34 +1,56 @@
-from typing import List, Union
+from typing import List, Optional
+
 from sentencepiece import SentencePieceProcessor
+
 from exllamav2.tokenizers.base import ExLlamaV2TokenizerBase
 
-class ExLlamaV2TokenizerSPM(ExLlamaV2TokenizerBase):
 
+class ExLlamaV2TokenizerSPM(ExLlamaV2TokenizerBase):
     vocab = None
 
     def __init__(self, tokenizer_model: str):
         super().__init__()
-        self.spm = SentencePieceProcessor(model_file = tokenizer_model)
+        self.spm = SentencePieceProcessor(model_file=tokenizer_model)
 
-    def unk_id(self) -> int or None: return self.spm.unk_id()
-    def pad_id(self) -> int or None: return self.spm.pad_id()
-    def bos_id(self) -> int or None: return self.spm.bos_id()
-    def eos_id(self) -> int or None: return self.spm.eos_id()
-    def unk_token(self) -> str or None: return None
-    def pad_token(self) -> str or None: return None
-    def bos_token(self) -> str or None: return None
-    def eos_token(self) -> str or None: return None
+    def unk_id(self) -> Optional[int]:
+        return self.spm.unk_id()
 
-    def space_char(self): return "▁"
-    def newline_char(self): return "\n"
+    def pad_id(self) -> Optional[int]:
+        return self.spm.pad_id()
+
+    def bos_id(self) -> Optional[int]:
+        return self.spm.bos_id()
+
+    def eos_id(self) -> Optional[int]:
+        return self.spm.eos_id()
+
+    def unk_token(self) -> Optional[str]:
+        return None
+
+    def pad_token(self) -> Optional[str]:
+        return None
+
+    def bos_token(self) -> Optional[str]:
+        return None
+
+    def eos_token(self) -> Optional[str]:
+        return None
+
+    def space_char(self):
+        return "▁"
+
+    def newline_char(self):
+        return "\n"
 
     def enumerate_tokens(self):
-        if self.vocab is not None: return enumerate(self.vocab)
+        if self.vocab is not None:
+            return enumerate(self.vocab)
         self.vocab = []
         for i in range(self.vocab_size()):
             p = self.spm.id_to_piece(i)
             d = self.spm.decode(i)
-            if p.startswith(self.space_char()) and not d.startswith(" "): d = " " + d
+            if p.startswith(self.space_char()) and not d.startswith(" "):
+                d = " " + d
             self.vocab.append(d)
         return enumerate(self.vocab)
 
@@ -45,6 +67,6 @@ class ExLlamaV2TokenizerSPM(ExLlamaV2TokenizerBase):
         text = self.spm.decode(ids)
         return text
 
-    def encode(self, text: list or str) -> list:
+    def encode(self, text: list[str] | str) -> list:
         encoding = self.spm.EncodeAsIds(text)
         return encoding

@@ -1,5 +1,6 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from exllamav2 import (
@@ -9,12 +10,10 @@ from exllamav2 import (
     ExLlamaV2Tokenizer,
 )
 
-from exllamav2.generator import (
-    ExLlamaV2StreamingGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
 
-import time, torch
+import time
+import torch
 
 # Initialize model and draft model
 
@@ -36,8 +35,8 @@ draft_config.max_seq_len = 2048
 
 draft = ExLlamaV2(draft_config)
 model = ExLlamaV2(model_config)
-model_cache = ExLlamaV2Cache(model, lazy = True)
-draft_cache = ExLlamaV2Cache(draft, lazy = True)
+model_cache = ExLlamaV2Cache(model, lazy=True)
+draft_cache = ExLlamaV2Cache(draft, lazy=True)
 draft.load_autosplit(draft_cache)
 model.load_autosplit(model_cache)
 
@@ -46,7 +45,9 @@ tokenizer = ExLlamaV2Tokenizer(model_config)
 # Initialize generators
 
 normal_generator = ExLlamaV2StreamingGenerator(model, model_cache, tokenizer)
-speculative_generator = ExLlamaV2StreamingGenerator(model, model_cache, tokenizer, draft, draft_cache, num_speculative_tokens = 5)
+speculative_generator = ExLlamaV2StreamingGenerator(
+    model, model_cache, tokenizer, draft, draft_cache, num_speculative_tokens=5
+)
 
 # Make sure CUDA is initialized so we can measure performance
 
@@ -65,7 +66,7 @@ def test_gen(generator, prompt, settings, max_new_tokens):
 
     time_begin_prompt = time.time()
 
-    print (prompt, end = "")
+    print(prompt, end="")
     sys.stdout.flush()
 
     generator.set_stop_conditions([])
@@ -80,9 +81,10 @@ def test_gen(generator, prompt, settings, max_new_tokens):
     while True:
         chunk, eos, _ = generator.stream()
         generated_tokens += 1
-        print (chunk, end = "")
+        print(chunk, end="")
         sys.stdout.flush()
-        if eos or generated_tokens == max_new_tokens: break
+        if eos or generated_tokens == max_new_tokens:
+            break
 
     time_end = time.time()
 
@@ -91,8 +93,12 @@ def test_gen(generator, prompt, settings, max_new_tokens):
 
     print()
     print()
-    print(f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second")
-    print(f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second")
+    print(
+        f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second"
+    )
+    print(
+        f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second"
+    )
 
 
 # Settings
@@ -123,7 +129,13 @@ print()
 
 test_gen(speculative_generator, gen_prompt, gen_settings, gen_max_tokens)
 
-efficiency, accuracy, total_tokens, total_draft_tokens, accepted_draft_tokens = speculative_generator.get_sd_stats()
+(
+    efficiency,
+    accuracy,
+    total_tokens,
+    total_draft_tokens,
+    accepted_draft_tokens,
+) = speculative_generator.get_sd_stats()
 
 print("efficiency:", efficiency)
 print("accuracy:", accuracy)

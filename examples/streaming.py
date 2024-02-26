@@ -1,5 +1,6 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from exllamav2 import (
@@ -9,10 +10,7 @@ from exllamav2 import (
     ExLlamaV2Tokenizer,
 )
 
-from exllamav2.generator import (
-    ExLlamaV2StreamingGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
 
 import time
 
@@ -27,7 +25,7 @@ config.prepare()
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
 
-cache = ExLlamaV2Cache(model, lazy = True)
+cache = ExLlamaV2Cache(model, lazy=True)
 model.load_autosplit(cache)
 
 tokenizer = ExLlamaV2Tokenizer(config)
@@ -63,7 +61,7 @@ generator.warmup()
 
 time_begin_prompt = time.time()
 
-print (prompt, end = "")
+print(prompt, end="")
 sys.stdout.flush()
 
 generator.set_stop_conditions([])
@@ -78,9 +76,10 @@ generated_tokens = 0
 while True:
     chunk, eos, _ = generator.stream()
     generated_tokens += 1
-    print (chunk, end = "")
+    print(chunk, end="")
     sys.stdout.flush()
-    if eos or generated_tokens == max_new_tokens: break
+    if eos or generated_tokens == max_new_tokens:
+        break
 
 time_end = time.time()
 
@@ -89,5 +88,9 @@ time_tokens = time_end - time_begin_stream
 
 print()
 print()
-print(f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second")
-print(f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second")
+print(
+    f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second"
+)
+print(
+    f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second"
+)

@@ -1,10 +1,12 @@
 from exllamav2.config import ExLlamaV2Config
 from exllamav2.linear import ExLlamaV2Linear
-import os, json
+import os
+import json
 from safetensors.torch import load_file as safe_load_file
 from torch import load as load_file
 import torch
 from exllamav2.compat import safe_move_tensor
+
 
 class ExLlamaV2Lora:
     lora_config_path: str
@@ -22,19 +24,18 @@ class ExLlamaV2Lora:
     target_modules: dict
 
     @staticmethod
-    def from_directory(model, directory, lora_scaling = 1.0):
+    def from_directory(model, directory, lora_scaling=1.0):
         config_path = os.path.join(directory, "adapter_config.json")
         lora_path_bin = os.path.join(directory, "adapter_model.bin")
         lora_path_st = os.path.join(directory, "adapter_model.safetensors")
-        if os.path.exists(lora_path_bin): return ExLlamaV2Lora(model, config_path, lora_path_bin, lora_scaling)
-        if os.path.exists(lora_path_st): return ExLlamaV2Lora(model, config_path, lora_path_st, lora_scaling)
+        if os.path.exists(lora_path_bin):
+            return ExLlamaV2Lora(model, config_path, lora_path_bin, lora_scaling)
+        if os.path.exists(lora_path_st):
+            return ExLlamaV2Lora(model, config_path, lora_path_st, lora_scaling)
         raise ValueError(f"No LoRA found in {directory}")
 
-
-    def __init__(self, model, lora_config_path, lora_path, lora_scaling = 1.0):
-
+    def __init__(self, model, lora_config_path, lora_path, lora_scaling=1.0):
         with torch.inference_mode():
-
             self.lora_config_path = lora_config_path
             self.lora_path = lora_path
             self.model = model
@@ -46,7 +47,7 @@ class ExLlamaV2Lora:
 
             # Grab relevant items from LoRA config
 
-            with open(lora_config_path, encoding = "utf8") as f:
+            with open(lora_config_path, encoding="utf8") as f:
                 read_config = json.load(f)
 
             self.lora_r = read_config["r"]
@@ -59,9 +60,9 @@ class ExLlamaV2Lora:
             # Load LoRA weights
 
             if self.lora_path.endswith(".safetensors"):
-                f = safe_load_file(self.lora_path, device = "cpu")
+                f = safe_load_file(self.lora_path, device="cpu")
             else:
-                f = load_file(self.lora_path, map_location = "cpu")
+                f = load_file(self.lora_path, map_location="cpu")
 
             for key in f.keys():
                 tensor = f[key]
@@ -69,7 +70,8 @@ class ExLlamaV2Lora:
                 # Find target
 
                 i = key.find("model.layers.")
-                if i == -1: raise ValueError(f" ## Error: unsupported layer in {self.lora_path}: {key}")
+                if i == -1:
+                    raise ValueError(f" ## Error: unsupported layer in {self.lora_path}: {key}")
 
                 target_key = key[i:]
                 ks = target_key.split(".")
@@ -85,7 +87,9 @@ class ExLlamaV2Lora:
                     self.bias_ignored = True
                     continue
 
-                target_module = self.model.modules_dict["model.layers." + str(decoder_idx) + "." + decoder_part + "." + decoder_layer]
+                target_module = self.model.modules_dict[
+                    "model.layers." + str(decoder_idx) + "." + decoder_part + "." + decoder_layer
+                ]
                 # if decoder_part == "self_attn": target_module = target_module.self_attn
                 # elif decoder_part == "mlp": target_module = target_module.mlp
                 # else: raise ValueError(f" ## Error: unsupported layer in {self.lora_path}: {key}")
@@ -109,9 +113,12 @@ class ExLlamaV2Lora:
                 elif lora_half == "lora_B":
                     in_features = None
                     out_features = tensor.shape[0]
-                else: raise ValueError(f" ## Error: unsupported layer in {self.lora_path}: {key}")
+                else:
+                    raise ValueError(f" ## Error: unsupported layer in {self.lora_path}: {key}")
 
-                if (in_features and in_features != target_module.in_features) or (out_features and out_features != target_module.out_features):
+                if (in_features and in_features != target_module.in_features) or (
+                    out_features and out_features != target_module.out_features
+                ):
                     raise ValueError(f" ## Error: incompatible tensor shape in {self.lora_path}: {key}")
 
                 # For efficiency, transpose adapter instead of transposing state during inference
@@ -120,7 +127,8 @@ class ExLlamaV2Lora:
 
                 # Pre-scale
 
-                if lora_half == "lora_B" and self.lora_scaling != 1.0: tensor.mul_(self.lora_scaling)
+                if lora_half == "lora_B" and self.lora_scaling != 1.0:
+                    tensor.mul_(self.lora_scaling)
 
                 # Check that dtype is compatible, or convert
 
@@ -133,13 +141,16 @@ class ExLlamaV2Lora:
                 elif tensor.dtype == torch.float16:
                     pass
 
-                else: raise ValueError(f" ## Error: unsupported tensor dtype in {self.lora_path}")
+                else:
+                    raise ValueError(f" ## Error: unsupported tensor dtype in {self.lora_path}")
 
                 # Move to target device
 
                 tensor = safe_move_tensor(tensor, target_module.device())
-                if lora_half == "lora_A": target_module.lora_a_tensors[self] = tensor
-                if lora_half == "lora_B": target_module.lora_b_tensors[self] = tensor
+                if lora_half == "lora_A":
+                    target_module.lora_a_tensors[self] = tensor
+                if lora_half == "lora_B":
+                    target_module.lora_b_tensors[self] = tensor
 
                 # Store adapter tensor
 
@@ -148,20 +159,14 @@ class ExLlamaV2Lora:
 
             self.model.update_loras()
 
-
-
     def unload(self):
-
         for k, v in self.target_modules.items():
-            if self in v.lora_a_tensors: del v.lora_a_tensors[self]
-            if self in v.lora_b_tensors: del v.lora_b_tensors[self]
+            if self in v.lora_a_tensors:
+                del v.lora_a_tensors[self]
+            if self in v.lora_b_tensors:
+                del v.lora_b_tensors[self]
 
         self.tensors = {}
         self.target_modules = {}
 
         self.model.update_loras()
-
-
-
-
-

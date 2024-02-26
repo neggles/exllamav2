@@ -293,8 +293,8 @@ void STFile::load
     // Get cache pages
 
     size_t file_b = offset / PAGESIZE * PAGESIZE;
- 
-   /* doest appear to be utilized rn 
+
+   /* doest appear to be utilized rn
     size_t file_c = DIVIDE(offset + length, PAGESIZE) * PAGESIZE;
    */
 
@@ -373,4 +373,3 @@ void safetensors_load
     TORCH_CHECK(false, "fasttensors only supported on Linux");
     #endif
 }
-

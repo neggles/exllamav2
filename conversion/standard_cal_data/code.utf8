@@ -8222,4 +8222,3 @@ There is also another type of quoting and that is ANSI-C. In this type of quotin
 \t 	horizontal tab 	\v 	vertical tab
 \\ 	backslash 	\` 	single quote
 \nnn 	octal value of characters ( see [http://www.asciitable.com/ ASCII table] ) 	\xnn 	hexadecimal value of characters ( see [http://www.asciitable.com/ ASCII table] )
-

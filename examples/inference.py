@@ -1,24 +1,22 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from exllamav2 import(
+from exllamav2 import (
     ExLlamaV2,
     ExLlamaV2Config,
     ExLlamaV2Cache,
     ExLlamaV2Tokenizer,
 )
 
-from exllamav2.generator import (
-    ExLlamaV2BaseGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
 
 import time
 
 # Initialize model and cache
 
-model_directory =  "/mnt/str/models/mistral-7b-instruct-exl2/4.0bpw/"
+model_directory = "/mnt/str/models/mistral-7b-instruct-exl2/4.0bpw/"
 
 config = ExLlamaV2Config()
 config.model_dir = model_directory
@@ -27,7 +25,7 @@ config.prepare()
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
 
-cache = ExLlamaV2Cache(model, lazy = True)
+cache = ExLlamaV2Cache(model, lazy=True)
 model.load_autosplit(cache)
 
 tokenizer = ExLlamaV2Tokenizer(config)
@@ -52,11 +50,13 @@ max_new_tokens = 150
 generator.warmup()
 time_begin = time.time()
 
-output = generator.generate_simple(prompt, settings, max_new_tokens, seed = 1234)
+output = generator.generate_simple(prompt, settings, max_new_tokens, seed=1234)
 
 time_end = time.time()
 time_total = time_end - time_begin
 
 print(output)
 print()
-print(f"Response generated in {time_total:.2f} seconds, {max_new_tokens} tokens, {max_new_tokens / time_total:.2f} tokens/second")
+print(
+    f"Response generated in {time_total:.2f} seconds, {max_new_tokens} tokens, {max_new_tokens / time_total:.2f} tokens/second"
+)

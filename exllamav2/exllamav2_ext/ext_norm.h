@@ -30,4 +30,3 @@ void layer_norm_
     torch::Tensor b,
     float epsilon
 );
-

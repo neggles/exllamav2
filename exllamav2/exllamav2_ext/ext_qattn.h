@@ -67,9 +67,3 @@ int q_attn_set_loras
     std::unordered_map<uintptr_t, torch::Tensor>& o_proj_lora_a,
     std::unordered_map<uintptr_t, torch::Tensor>& o_proj_lora_b
 );
-
-
-
-
-
-

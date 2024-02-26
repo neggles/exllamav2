@@ -14,5 +14,3 @@
 #include "cpp/safetensors.h"
 
 #include "cpp/util.h"
-
-

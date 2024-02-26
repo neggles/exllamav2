@@ -1,21 +1,19 @@
-import sys, os, gc
+import gc
+import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from human_eval.data import write_jsonl, read_problems
+import torch
+from human_eval.data import read_problems, write_jsonl
 
-from exllamav2 import(
+from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
+    ExLlamaV2Config,
     ExLlamaV2Tokenizer,
 )
-
-from exllamav2.generator import(
-    ExLlamaV2BaseGenerator,
-    ExLlamaV2Sampler
-)
-
-import torch
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
 
 # Models to test
 
@@ -45,8 +43,8 @@ gpu_split = (16, 16, 24)
 
 # Load model
 
-def get_model(base, variant_, gpu_split_, batch_size_):
 
+def get_model(base, variant_, gpu_split_, batch_size_):
     model_dir = os.path.join(base, variant_)
 
     config = ExLlamaV2Config()
@@ -62,7 +60,7 @@ def get_model(base, variant_, gpu_split_, batch_size_):
 
     tokenizer_ = ExLlamaV2Tokenizer(config)
 
-    cache_ = ExLlamaV2Cache(model_, batch_size = batch_size)
+    cache_ = ExLlamaV2Cache(model_, batch_size=batch_size)
     # cache_ = None
 
     return model_, cache_, tokenizer_
@@ -71,7 +69,6 @@ def get_model(base, variant_, gpu_split_, batch_size_):
 problems = read_problems()
 
 for variant in variants:
-
     # Model
 
     model = None
@@ -95,31 +92,29 @@ for variant in variants:
     for task_id in problems:
         print(task_id)
         for _ in range(num_samples_per_task):
-
             # Get problem and batch of completions
 
             problem = [problems[task_id]["prompt"]] * batch_size
-            responses = gen.generate_simple(problem, gen_settings, 500, stop_token = tokenizer.eos_token_id)
+            responses = gen.generate_simple(problem, gen_settings, 500, stop_token=tokenizer.eos_token_id)
 
             for response in responses:
-
                 # Simplified cleanup of response: remove all lines starting from the first line with no indentation,
                 # i.e. keep exactly one function
 
-                r = response[len(problem[0]):]
-                s =r.split("\n")
+                r = response[len(problem[0]) :]
+                s = r.split("\n")
                 crop = len(s)
-                for l in range(1, len(s)):
-                    if len(s[l]) > 0:
-                        b = s[l][0:1]
+                for idx in range(1, len(s)):
+                    if len(s[idx]) > 0:
+                        b = s[idx][0:1]
                         if b != " " and b != "\t" and b != "#":
-                            crop = l
+                            crop = idx
                             break
                 r = "\n".join(s[:crop])
 
                 # Store sample
 
-                samples.append(dict(task_id = task_id, completion = r))
+                samples.append(dict(task_id=task_id, completion=r))
 
     # Save output
 

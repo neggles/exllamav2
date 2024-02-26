@@ -1,9 +1,15 @@
+import os
+import sys
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from exllamav2 import *
-from exllamav2.generator import *
+from exllamav2 import (
+    ExLlamaV2,
+    ExLlamaV2Cache,
+    ExLlamaV2Config,
+    ExLlamaV2Tokenizer,
+)
+from exllamav2.generator import ExLlamaV2Sampler, ExLlamaV2StreamingGenerator
 
 # Initialize model and cache
 
@@ -18,7 +24,7 @@ config.prepare()
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
 
-cache = ExLlamaV2Cache(model, lazy = True, batch_size = 2)
+cache = ExLlamaV2Cache(model, lazy=True, batch_size=2)
 model.load_autosplit(cache)
 
 tokenizer = ExLlamaV2Tokenizer(config)
@@ -40,14 +46,12 @@ max_new_tokens = 250
 
 # Prompt
 
-positive = \
-"""[INST] <<SYS>>
+positive = """[INST] <<SYS>>
 You are a cheerful, bubbly and respectful assistant.
 <</SYS>>
 {prompt} [/INST]"""
 
-negative = \
-"""[INST] <<SYS>>
+negative = """[INST] <<SYS>>
 You are a rude and obnoxious assistant.
 <</SYS>>
 {prompt} [/INST]"""
@@ -64,7 +68,6 @@ print("-------------------------------------------")
 print("Prompt b:\n" + prompt_b + "\n")
 
 for x in range(11):
-
     # cfg_scale is the weight of the first prompt in the batch, while the second prompt is weighted as (1 - cfg_scale).
     #
     # - at cfg_scale == 0, only the second prompt is effective
@@ -76,12 +79,14 @@ for x in range(11):
 
     # Start a batched generation. CFG requires a batch size of exactly 2. Offsets and padding mask are required
 
-    input_ids, offsets = tokenizer.encode([prompt_a, prompt_b], encode_special_tokens = True, return_offsets = True)
+    input_ids, offsets = tokenizer.encode(
+        [prompt_a, prompt_b], encode_special_tokens=True, return_offsets=True
+    )
     mask = tokenizer.padding_mask(input_ids)
-    generator.begin_stream(input_ids, settings, input_mask = mask, position_offsets = offsets)
+    generator.begin_stream(input_ids, settings, input_mask=mask, position_offsets=offsets)
     generator.set_stop_conditions([tokenizer.eos_token_id])
 
-    print(f"---------------------------------------------------------------------------------------")
+    print("---------------------------------------------------------------------------------------")
     print(f"cfg_scale = {settings.cfg_scale:.1f}")
     print()
 
@@ -90,7 +95,8 @@ for x in range(11):
     while True:
         chunk, eos, _ = generator.stream()
         generated_tokens += 1
-        print (chunk, end = "")
+        print(chunk, end="")
         sys.stdout.flush()
-        if eos or generated_tokens == max_new_tokens: break
+        if eos or generated_tokens == max_new_tokens:
+            break
     print()

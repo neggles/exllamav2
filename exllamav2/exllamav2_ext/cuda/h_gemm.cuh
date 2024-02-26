@@ -36,4 +36,3 @@ void h_gemm_cublas
 );
 
 #endif
-

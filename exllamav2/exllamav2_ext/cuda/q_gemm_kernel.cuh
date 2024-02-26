@@ -559,4 +559,3 @@ __global__ void gemm_half_q_half_kernel
 //        *(out + 1) = result23;
     }
 }
-

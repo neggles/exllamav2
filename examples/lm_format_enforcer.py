@@ -1,5 +1,6 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pydantic import BaseModel, conlist
@@ -19,11 +20,10 @@ from exllamav2.generator import (
     ExLlamaV2Sampler,
 )
 
-from exllamav2.generator.filters import (
-    ExLlamaV2PrefixFilter
-)
+from exllamav2.generator.filters import ExLlamaV2PrefixFilter
 
-import time, json
+import time
+import json
 
 # Initialize model and cache
 
@@ -36,7 +36,7 @@ config.prepare()
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
 
-cache = ExLlamaV2Cache(model, lazy = True)
+cache = ExLlamaV2Cache(model, lazy=True)
 model.load_autosplit(cache)
 
 tokenizer = ExLlamaV2Tokenizer(config)
@@ -48,8 +48,8 @@ generator.warmup()  # for more accurate timing
 
 # Generate with or without filter
 
-def completion(prompt, filters = None, max_new_tokens = 200, eos_bias = False):
 
+def completion(prompt, filters=None, max_new_tokens=200, eos_bias=False):
     settings = ExLlamaV2Sampler.Settings()
     settings.temperature = 0.75
     settings.top_k = 0
@@ -86,9 +86,10 @@ def completion(prompt, filters = None, max_new_tokens = 200, eos_bias = False):
         chunk, eos, _ = generator.stream()
         result += chunk
         generated_tokens += 1
-        print(chunk, end = "")
+        print(chunk, end="")
         sys.stdout.flush()
-        if eos or generated_tokens == max_new_tokens: break
+        if eos or generated_tokens == max_new_tokens:
+            break
 
     time_end = time.time()
 
@@ -96,25 +97,33 @@ def completion(prompt, filters = None, max_new_tokens = 200, eos_bias = False):
     time_tokens = time_end - time_begin_stream
 
     print("\n")
-    print(f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second")
-    print(f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second")
+    print(
+        f"Prompt processed in {time_prompt:.2f} seconds, {prompt_tokens} tokens, {prompt_tokens / time_prompt:.2f} tokens/second"
+    )
+    print(
+        f"Response generated in {time_tokens:.2f} seconds, {generated_tokens} tokens, {generated_tokens / time_tokens:.2f} tokens/second"
+    )
     print("\n\n")
 
     return result
 
+
 # Configure filter
+
 
 class SuperheroAppearance(BaseModel):
     title: str
     issue_number: int
     year: int
 
+
 class Superhero(BaseModel):
     name: str
     secret_identity: str
-    superpowers: conlist(str, max_length = 5)
+    superpowers: conlist(str, max_length=5)
     first_appearance: SuperheroAppearance
     gender: Literal["male", "female"]
+
 
 schema_parser = JsonSchemaParser(Superhero.schema())
 lmfe_filter = ExLlamaV2TokenEnforcerFilter(schema_parser, tokenizer)
@@ -124,14 +133,14 @@ prefix_filter = ExLlamaV2PrefixFilter(model, tokenizer, "{")  # Make sure we sta
 
 prompt = "Here is some information about Superman:\n"
 completion(prompt, [])
-result = completion(prompt, [lmfe_filter, prefix_filter], eos_bias = True)
+result = completion(prompt, [lmfe_filter, prefix_filter], eos_bias=True)
 
 j = json.loads(result)
-print("Parsed JSON:" , j)
+print("Parsed JSON:", j)
 
 prompt = "Here is some information about Batman:\n"
 completion(prompt, [])
-result = completion(prompt, [lmfe_filter, prefix_filter], eos_bias = True)
+result = completion(prompt, [lmfe_filter, prefix_filter], eos_bias=True)
 
 j = json.loads(result)
-print("Parsed JSON:" , j)
+print("Parsed JSON:", j)

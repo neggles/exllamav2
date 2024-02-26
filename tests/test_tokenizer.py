@@ -1,7 +1,8 @@
-from transformers import AutoTokenizer
-from exllamav2 import ExLlamaV2Config
-from exllamav2 import ExLlamaV2Tokenizer
 import random
+
+from transformers import AutoTokenizer
+
+from exllamav2 import ExLlamaV2Config, ExLlamaV2Tokenizer
 
 # model_path = "/mnt/str/models/_exl2/deepseek-coder-1.3b"
 # model_path = "/mnt/str/models/_exl2/deepseek-67b-chat/"
@@ -13,7 +14,7 @@ reference_tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 config = ExLlamaV2Config()
 config.model_dir = model_path
-config.prepare(no_tensors = True)
+config.prepare(no_tensors=True)
 exl2_tokenizer = ExLlamaV2Tokenizer(config)
 
 # Bunch of text
@@ -44,10 +45,10 @@ This command might take a bit of time if your corpus is very large, but for this
  3900X CPU with 12 cores). Note that AutoTokenizer.train_new_from_iterator() only works if the tokenizer you are using is a “fast” tokenizer. As you’ll see in the next section,
   the 🤗 Transformers library contains two types of tokenizers: some are written purely in Python and others (the fast ones) are backed by the 🤗 Tokenizers library, which is
    written in the Rust programming language. Python is the language most often used for data science and deep learning applications, but when anything needs to be parallelized
-    to be fast, it has to be written in another language. For instance, the matrix multiplications that are at the core of the model computation are written in CUDA, an 
+    to be fast, it has to be written in another language. For instance, the matrix multiplications that are at the core of the model computation are written in CUDA, an
    optimized C library for GPUs.
 Training a brand new tokenizer in pure Python would be excruciating
-a language model is not available in the language you are interested in, or if your corpus is very different from the one your language model was trained on, you will most 
+a language model is not available in the language you are interested in, or if your corpus is very different from the one your language model was trained on, you will most
 likely want to retrain the model from scratch using a tokenizer adapted to your data. That will require training a new tokenizer on your dataset. But what exactly does that
  mean? When we first looked at tokenizers in Chapter 2, we saw that most Transformer models use a subword tokenization algorithm. To identify which subwords are of interest
   and occur most frequently in the corpus at hand, the tokenizer needs to take a hard look at all the texts in the corpus — a process we call training. The exact rules that
@@ -56,7 +57,7 @@ likely want to retrain the model from scratch using a tokenizer adapted to your 
 
 !
 !asdasd
-!asdfasdas asd asd asd asd 
+!asdfasdas asd asd asd asd
 xx                                                                                              xxxx
 #######################################################################################################
 *✰
@@ -92,7 +93,7 @@ m(_ _)m
 ly slow, which is why we developed the 🤗 Tokenizers library. Note that just as you didn’t have to learn the CUDA language to be able to execute your model on a batch of i
 nputs on a GPU, you won’t need to learn Rust to use a fast tokenizer. The 🤗 Tokenizers library provides Python bindings for many methods that internally call some piece o
 f code in Rust; for example, to parallelize the training of your new tokenizer or, as we saw in Chapter 3, the tokenization of a batch of inputs.
-Most of the Transformer models have a fast tokenizer available (there are some exceptions that you can check here), and the AutoTokenizer API always selects the 
+Most of the Transformer models have a fast tokenizer available (there are some exceptions that you can check here), and the AutoTokenizer API always selects the
 fast tokenizer for you if it’s available. In the next section we’ll take a look at some of the other special features fast tokenizers have, which will be really useful f
 or tasks like token classification and question answering. Before diving into that, however, let’s try our brand new tokenizer on the previous example:
 tokens = tokenizer.tokenize(example)
@@ -111,7 +112,7 @@ tokens
 
 ['def', 'Ġadd', '_', 'numbers', '(', 'a', ',', 'Ġb', '):', 'ĊĠĠĠ', 'Ġ, 'Add', 'Ġthe', 'Ġtwo', 'Ġnumbers', 'Ġ`',
  'a', '`', 'Ġand', 'Ġ`', 'b', '`.'ĊĠĠĠ', 'Ġreturn', 'Ġa', 'Ġ+', 'Ġb']
-Here we again see the special symbols Ġ and Ċ that denote spaces and newlines, but we can also see that our tokenizer learned some tokens that are highly specific to 
+Here we again see the special symbols Ġ and Ċ that denote spaces and newlines, but we can also see that our tokenizer learned some tokens that are highly specific to
 a corpus of
 使用当今最常用的分词器来训练新词汇并进行分词。
      由于 Rust 实现，速度非常快（训练和标记化）。 在服务器 CPU 上标记 1 GB 文本只需不到 20 秒。
@@ -179,7 +180,7 @@ But Ǆ is ok.
 
 posted 14 years ago
 
-    Mark post as helpful send pies Quote Report post to moderator 
+    Mark post as helpful send pies Quote Report post to moderator
 
 Hi,
 ?
@@ -200,7 +201,7 @@ Hi,
 15
 16
 17
-	
+
 public static void main(String[] args) throws FileNotFoundException, IOException,
             UnsupportedRTFTemplate, Exception {
         System.setProperty("file.enconding", "ISO-8859-1");
@@ -260,12 +261,12 @@ bb
 
 for i in range(2000):
     p = random.randint(0, len(text) - 10)
-    l = random.randint(0, len(text) // 2)
+    plen = random.randint(0, len(text) // 2)
 
     print(".", end="")
 
-    chunk = text[p:p+l]
-    x = reference_tokenizer.encode(chunk, add_special_tokens = False)
+    chunk = text[p : p + plen]
+    x = reference_tokenizer.encode(chunk, add_special_tokens=False)
     y = exl2_tokenizer.encode(chunk)[0]
     if x != y.tolist():
         print("dammit")

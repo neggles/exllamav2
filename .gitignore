@@ -231,6 +231,7 @@ $RECYCLE.BIN/
 
 # produced by `pip install -e .`
 exllamav2_ext.cpython-*.so
+*.whl
 
 # setuptools-scm version file
 /exllamav2/version.py

@@ -244,4 +244,3 @@ __global__ void gemm_half_q_half_gptq_kernel
         atomicAdd(out + 1, result23);
     }
 }
-

@@ -1,7 +1,7 @@
 import math
 
-class QParams:
 
+class QParams:
     group_size: dict
     bits: list
     bits_prop: list
@@ -10,7 +10,6 @@ class QParams:
     desc: str
 
     def __init__(self, group_size, bits, bits_prop, scale_bits):
-
         self.bits = bits
         self.bits_prop = bits_prop
         self.scale_bits = scale_bits
@@ -18,18 +17,16 @@ class QParams:
         # Allow group size per bitrate
 
         if isinstance(group_size, dict):
-            self.group_size = { int(b): g for b, g in group_size.items() }
+            self.group_size = {int(b): g for b, g in group_size.items()}
         elif isinstance(group_size, list):
             assert len(group_size) == len(bits)
-            self.group_size = { b: g for g, b in zip(group_size, bits) }
+            self.group_size = {b: g for g, b in zip(group_size, bits)}
         else:
-            self.group_size = { b: group_size for b in bits }
+            self.group_size = {b: group_size for b in bits}
 
         self.desc = self.get_desc()
 
-
     def __repr__(self):
-
         if len(set(self.group_size.values())) == 1:
             _gs = str(list(self.group_size.values())[0])
         else:
@@ -39,26 +36,19 @@ class QParams:
         _sb = "4"
         return "QParams(" + _gs + ", " + _b + ", " + _bp + ", " + _sb + ")"
 
-
     def get_dict(self):
-
-        return { "group_size": self.group_size,
-                 "bits": self.bits,
-                 "bits_prop": self.bits_prop,
-                 "scale_bits": self.scale_bits }
-
+        return {
+            "group_size": self.group_size,
+            "bits": self.bits,
+            "bits_prop": self.bits_prop,
+            "scale_bits": self.scale_bits,
+        }
 
     @staticmethod
     def from_dict(qp_dict):
+        return QParams(qp_dict["group_size"], qp_dict["bits"], qp_dict["bits_prop"], qp_dict["scale_bits"])
 
-        return QParams(qp_dict["group_size"],
-                       qp_dict["bits"],
-                       qp_dict["bits_prop"],
-                       qp_dict["scale_bits"])
-
-
-    def total_bits(self, shape, bias_shape = None):
-
+    def total_bits(self, shape, bias_shape=None):
         rows = shape[0]
         columns = shape[1]
         numel = rows * columns
@@ -79,45 +69,44 @@ class QParams:
         tr = rows
 
         for g, b in zip(bits_groups, self.bits):
-
             r = self.group_size[b] * g
             c = columns
-            if r > tr: r = tr
+            if r > tr:
+                r = tr
             tr -= r
-            total_bits += r * c * b                         # q_weight
+            total_bits += r * c * b  # q_weight
 
-        total_bits += groups * 16                           # q_scale_max
-        total_bits += groups * (16 + 16)                    # q_groups
-        total_bits += groups * columns * self.scale_bits    # q_scale
-        total_bits += rows * 32                             # q_invperm
+        total_bits += groups * 16  # q_scale_max
+        total_bits += groups * (16 + 16)  # q_groups
+        total_bits += groups * columns * self.scale_bits  # q_scale
+        total_bits += rows * 32  # q_invperm
 
         if bias_shape is not None:
             bias_numel = 1
-            for d in bias_shape: bias_numel *= d
+            for d in bias_shape:
+                bias_numel *= d
             total_bits += 16 * d
 
         return total_bits
 
-
-    def bpw(self, shape, bias_shape = None):
-
+    def bpw(self, shape, bias_shape=None):
         rows = shape[0]
         columns = shape[1]
         numel = rows * columns
 
         if bias_shape is not None:
             bias_numel = 1
-            for d in bias_shape: bias_numel *= d
+            for d in bias_shape:
+                bias_numel *= d
             numel += d
 
         return self.total_bits(shape, bias_shape) / numel
 
-
-    def get_desc(self, filename = False):
-
+    def get_desc(self, filename=False):
         s = ""
         for b, p in zip(self.bits, self.bits_prop):
-            if s != "": s += ("__" if filename else "/")
+            if s != "":
+                s += "__" if filename else "/"
             g = self.group_size[b]
             s += f"{p}{'___' if filename else ':'}{b}b_{g}g"
 
@@ -128,8 +117,7 @@ class QParams:
 
 # kernels require groupsize divisible by 32, except 2-bit groups which can be divisible by 16
 
-qparams_attn = \
-[
+qparams_attn = [
     [
         QParams(64, [3, 2], [0.05, 0.95], 4),
         QParams(64, [3, 2], [0.05, 0.95], 4),
@@ -246,8 +234,7 @@ qparams_attn = \
     ],
 ]
 
-qparams_mlp = \
-[
+qparams_mlp = [
     [
         QParams(64, [3, 2], [0.05, 0.95], 4),
         QParams(64, [3, 2], [0.05, 0.95], 4),
@@ -332,11 +319,10 @@ qparams_mlp = \
         QParams(128, [8], [1], 4),
         QParams(128, [8], [1], 4),
         QParams(128, [8], [1], 4),
-    ]
+    ],
 ]
 
-qparams_headoptions = \
-{
+qparams_headoptions = {
     2: QParams(32, [4, 2], [0.3, 0.7], 4),
     3: QParams(32, [4, 3], [0.15, 0.85], 4),
     4: QParams(32, [6, 4], [0.15, 0.85], 4),
@@ -346,8 +332,8 @@ qparams_headoptions = \
     # 16: None
 }
 
-def get_qparams_reduced(options):
 
+def get_qparams_reduced(options):
     num_options = len(options)
     dim = len(options[0])
     assert all(len(o) == dim for o in options)

@@ -1,12 +1,12 @@
 import torch
-from exllamav2.ext import exllamav2_ext as ext_c, none_tensor
+from exllamav2.ext import exllamav2_ext as ext_c
 import random
 
 shapes = [  # m, k, n
-    [    1,   16,     1 ],
-    [   16,   16,    16 ],
-    [    8,  256,    32 ],
-    [    8,    8,   256 ],
+    [1, 16, 1],
+    [16, 16, 16],
+    [8, 256, 32],
+    [8, 8, 256],
 ]
 
 for i in range(10):
@@ -16,12 +16,12 @@ for i in range(10):
 for s in shapes:
     m, k, n = s[0], s[1], s[2]
 
-    print(f" ({m}, {k}) @ ({k}, {n}) -> ({m}, {n}): ".ljust(42), end = "")
+    print(f" ({m}, {k}) @ ({k}, {n}) -> ({m}, {n}): ".ljust(42), end="")
 
-    a = torch.randn((m, k), dtype = torch.half, device = "cuda:0")
-    b = torch.randn((k, n), dtype = torch.half, device = "cuda:0")
-    c = torch.empty((m, n), dtype = torch.half, device = "cuda:0")
-    d = torch.empty((m, n), dtype = torch.half, device = "cuda:0")
+    a = torch.randn((m, k), dtype=torch.half, device="cuda:0")
+    b = torch.randn((k, n), dtype=torch.half, device="cuda:0")
+    c = torch.empty((m, n), dtype=torch.half, device="cuda:0")
+    d = torch.empty((m, n), dtype=torch.half, device="cuda:0")
 
     ext_c.gemm_half_half_half(a, b, c, 1, 0, False)
     ext_c.gemm_half_half_half(a, b, d, 1, 0, True)
@@ -33,4 +33,3 @@ for s in shapes:
     diff_torch = torch.max(torch.abs(e_torch)).item()
 
     print(f"diff vs cuBLAS: {diff_cublas:.3f}   diff vs Torch: {diff_torch:.3f}")
-

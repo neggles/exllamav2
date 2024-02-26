@@ -1,4 +1,3 @@
-
 # from exllamav2 import (
 #     ExLlamaV2,
 #     ExLlamaV2Config,
@@ -9,24 +8,28 @@
 import json
 import asyncio
 
-from exllamav2.generator import (
-    ExLlamaV2StreamingGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2Sampler
+
 
 async def dispatch(request, ws, server):
-
     action_ = request["action"]
 
-    response = { "action": action_ }
-    if "request_id" in request: response["request_id"] = request["request_id"]
-    if "response_id" in request: response["response_id"] = request["response_id"]
+    response = {"action": action_}
+    if "request_id" in request:
+        response["request_id"] = request["request_id"]
+    if "response_id" in request:
+        response["response_id"] = request["response_id"]
 
-    if action_ == "echo": echo(request, ws, server, response)
-    elif action_ == "estimate_token": estimate_token(request, ws, server, response)
-    elif action_ == "lefttrim_token": lefttrim_token(request, ws, server, response)
-    elif action_ == "infer": await infer(request, ws, server, response)
-    elif action_ == "stop": stop(request, ws, server, response)
+    if action_ == "echo":
+        echo(request, ws, server, response)
+    elif action_ == "estimate_token":
+        estimate_token(request, ws, server, response)
+    elif action_ == "lefttrim_token":
+        lefttrim_token(request, ws, server, response)
+    elif action_ == "infer":
+        await infer(request, ws, server, response)
+    elif action_ == "stop":
+        stop(request, ws, server, response)
 
     else:
         print(f" ## Unknown request from client: {request}")
@@ -36,7 +39,6 @@ async def dispatch(request, ws, server):
 
 
 def echo(request, ws, server, response):
-
     """
     request:  { action: str = "echo",
                 request_id: str,                    # (optional) request ID to echo in response packet
@@ -51,7 +53,6 @@ def echo(request, ws, server, response):
 
 
 def estimate_token(request, we, server, response):
-
     """
     request:  { action: str = "estimate_token",
                 request_id: str,                    # (optional) request ID to echo in response packet
@@ -70,7 +71,6 @@ def estimate_token(request, we, server, response):
 
 
 def lefttrim_token(request, ws, server, response):
-
     """
     request:  { action: str = "lefttrim_token",
                 request_id: str,                    # (optional) request ID to echo in response packet
@@ -95,7 +95,6 @@ def lefttrim_token(request, ws, server, response):
 
 
 async def infer(request, ws, server, response):
-
     """
     request:  { action: str = "infer",
                 request_id: str,                    # (optional) request ID to echo in response packet
@@ -136,7 +135,6 @@ async def infer(request, ws, server, response):
     """
 
     async with server.model_lock:
-
         server.stop_signal.clear()
 
         # Mode
@@ -150,18 +148,20 @@ async def infer(request, ws, server, response):
         sc = [server.tokenizer.eos_token_id]
         if "stop_conditions" in request:
             ss = request["stop_conditions"]
-            if not isinstance(ss, list): ss = [ss]
+            if not isinstance(ss, list):
+                ss = [ss]
             sc += ss
 
         if "bann_bann" in request:
             bb = request["bann_bann"]
-            if not isinstance(bb, list): bb = [bb]
+            if not isinstance(bb, list):
+                bb = [bb]
         else:
             bb = None
 
         # Full response
 
-        full_response = request['stream_full'] if 'stream_full' in request else False
+        full_response = request["stream_full"] if "stream_full" in request else False
         # Tokenize and trim prompt
 
         full_ctx = request["text"]
@@ -194,7 +194,9 @@ async def infer(request, ws, server, response):
         # Generate
 
         server.generator.set_stop_conditions(sc)
-        server.generator.begin_stream(ids, gs, token_healing = request["token_healing"] if "token_healing" in request else False)
+        server.generator.begin_stream(
+            ids, gs, token_healing=request["token_healing"] if "token_healing" in request else False
+        )
 
         completion = ""
         gen_tokens = 0
@@ -207,9 +209,10 @@ async def infer(request, ws, server, response):
             if stream and chunk != "":
                 response["response_type"] = "chunk"
                 response["chunk"] = chunk
-                if full_response: response["response"] = completion
+                if full_response:
+                    response["response"] = completion
                 await ws.send(json.dumps(response))
-            response["chunk"] = ''
+            response["chunk"] = ""
 
             if eos:
                 response["stop_reason"] = "eos"
@@ -226,14 +229,13 @@ async def infer(request, ws, server, response):
                 response["stop_reason"] = "interrupted"
                 break
 
-        #if stream: del response["chunk"]
+        # if stream: del response["chunk"]
         response["response_type"] = "full"
 
         response["response"] = completion
 
 
 def stop(request, ws, server, response):
-
     """
     request:  { action: str = "stop",
                 request_id: str,                    # (optional) request ID to echo in response packet

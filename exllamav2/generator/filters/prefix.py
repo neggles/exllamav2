@@ -1,12 +1,7 @@
-from exllamav2 import (
-    ExLlamaV2,
-    ExLlamaV2Tokenizer
-)
-
 from exllamav2.generator.filters.base import ExLlamaV2Filter
 
-class ExLlamaV2PrefixFilter(ExLlamaV2Filter):
 
+class ExLlamaV2PrefixFilter(ExLlamaV2Filter):
     offset: int
     prefix_string: str
 
@@ -16,28 +11,22 @@ class ExLlamaV2PrefixFilter(ExLlamaV2Filter):
         self.prefix_string = prefix_string
         self.offset = 0
 
-
-    def begin(self, prefix_str = ""):
-
+    def begin(self, prefix_str=""):
         self.offset = 0
 
-
     def feed(self, token):
-
         id_to_piece = self.tokenizer.get_id_to_piece_list()
         piece = id_to_piece[token]
         self.offset += len(piece)
 
-
     def next(self):
-
         if self.offset >= len(self.prefix_string):
             return None, set()
 
         char_trie = self.tokenizer.get_char_trie()
         prefix_to_ids = self.tokenizer.get_prefix_to_ids_dict()
 
-        rem_str = self.prefix_string[self.offset:]
+        rem_str = self.prefix_string[self.offset :]
 
         # Use prefix dict if string could be completed by one token
 

@@ -1,27 +1,23 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from exllamav2 import(
+from exllamav2 import (
     ExLlamaV2,
     ExLlamaV2Config,
     ExLlamaV2Cache,
     ExLlamaV2Tokenizer,
 )
 
-from exllamav2.generator import (
-    ExLlamaV2BaseGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
 
-import time
 
 # Input prompts
 
 batch_size = 5
 
-prompts = \
-[
+prompts = [
     "How do I open a can of beans?",
     "How do I open a can of soup?",
     "How do I open a can of strawberry jam?",
@@ -39,28 +35,30 @@ prompts = \
     "Why are cats better than dogs?",
     "Why is the Hulk so angry all the time?",
     "How do I build a time machine?",
-    "Is it legal to grow your own catnip?"
+    "Is it legal to grow your own catnip?",
 ]
 
 # Sort by length to minimize padding
 
-s_prompts = sorted(prompts, key = len)
+s_prompts = sorted(prompts, key=len)
 
 # Apply prompt format
 
+
 def format_prompt(sp, p):
     return f"[INST] <<SYS>>\n{sp}\n<</SYS>>\n\n{p} [/INST]"
+
 
 system_prompt = "Answer the question to the best of your ability."
 f_prompts = [format_prompt(system_prompt, p) for p in s_prompts]
 
 # Split into batches
 
-batches = [f_prompts[i:i + batch_size] for i in range(0, len(prompts), batch_size)]
+batches = [f_prompts[i : i + batch_size] for i in range(0, len(prompts), batch_size)]
 
 # Initialize model and cache
 
-model_directory =  "/mnt/str/models/mistral-7b-instruct-exl2/4.0bpw/"
+model_directory = "/mnt/str/models/mistral-7b-instruct-exl2/4.0bpw/"
 
 config = ExLlamaV2Config()
 config.model_dir = model_directory
@@ -71,7 +69,7 @@ config.max_batch_size = batch_size  # Model instance needs to allocate temp buff
 model = ExLlamaV2(config)
 print("Loading model: " + model_directory)
 
-cache = ExLlamaV2Cache(model, lazy = True, batch_size = batch_size)  # Cache needs to accommodate the batch size
+cache = ExLlamaV2Cache(model, lazy=True, batch_size=batch_size)  # Cache needs to accommodate the batch size
 model.load_autosplit(cache)
 
 tokenizer = ExLlamaV2Tokenizer(config)
@@ -96,12 +94,11 @@ max_new_tokens = 512
 
 collected_outputs = []
 for b, batch in enumerate(batches):
-
     print(f"Batch {b + 1} of {len(batches)}...")
 
-    outputs = generator.generate_simple(batch, settings, max_new_tokens, seed = 1234)
+    outputs = generator.generate_simple(batch, settings, max_new_tokens, seed=1234)
 
-    trimmed_outputs = [o[len(p):] for p, o in zip(batch, outputs)]
+    trimmed_outputs = [o[len(p) :] for p, o in zip(batch, outputs)]
     collected_outputs += trimmed_outputs
 
 # Print the results

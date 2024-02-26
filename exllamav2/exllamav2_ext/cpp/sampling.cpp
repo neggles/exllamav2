@@ -192,7 +192,7 @@ int post_softmax_temperature
 //    printf("---- pre\n");
 //    for (int i = 0; i < num_candidates; ++i)
 //        DBGIF(i, temp_probs[i]);
-    
+
     float psum = 0.0f;
     float itemp = 1.0f / temperature;
     for (int i = 0; i < num_candidates; ++i)
@@ -768,5 +768,3 @@ int multinomial_cpu
 
     return 1;
 }
-
-

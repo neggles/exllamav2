@@ -1,5 +1,6 @@
+import sys
+import os
 
-import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from exllamav2 import (
@@ -10,13 +11,8 @@ from exllamav2 import (
     ExLlamaV2Lora,
 )
 
-from exllamav2.generator import (
-    ExLlamaV2BaseGenerator,
-    ExLlamaV2StreamingGenerator,
-    ExLlamaV2Sampler
-)
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
 
-import time
 
 # Initialize model and cache
 
@@ -57,42 +53,42 @@ settings.token_repetition_penalty = 1.1
 
 # Alpaca-style prompt
 
-prompt = \
-    "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n" \
-    "\n" \
-    "### Instruction:\n" \
-    "Write three tweets explaining that the Earth is not flat, using spaghetti and meatballs as an analogy.\n" \
-    "\n" \
+prompt = (
+    "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n"
+    "\n"
+    "### Instruction:\n"
+    "Write three tweets explaining that the Earth is not flat, using spaghetti and meatballs as an analogy.\n"
+    "\n"
     "### Response:"
+)
 
 
 # Generate with and without LoRA
 
-def generate_with_lora(prompt_, lora_, max_new_tokens, streaming_ = True):
 
+def generate_with_lora(prompt_, lora_, max_new_tokens, streaming_=True):
     print(prompt_, end="")
     sys.stdout.flush()
 
     if streaming_:
-
         input_ids = tokenizer.encode(prompt_)
 
-        streaming_generator.begin_stream(input_ids, settings, loras = lora_)
+        streaming_generator.begin_stream(input_ids, settings, loras=lora_)
         generated_tokens = 0
         while True:
             chunk, eos, _ = streaming_generator.stream()
             generated_tokens += 1
-            print (chunk, end = "")
+            print(chunk, end="")
             sys.stdout.flush()
-            if eos or generated_tokens == max_new_tokens: break
+            if eos or generated_tokens == max_new_tokens:
+                break
 
         print()
 
     else:
+        output = simple_generator.generate_simple(prompt_, settings, max_new_tokens, loras=lora_)
 
-        output = simple_generator.generate_simple(prompt_, settings, max_new_tokens, loras = lora_)
-
-        print (output[len(prompt_):])
+        print(output[len(prompt_) :])
         print()
 
 

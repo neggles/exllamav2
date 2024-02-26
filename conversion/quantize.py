@@ -1,39 +1,38 @@
-from exllamav2.model import \
-(
-    ExLlamaV2Embedding,
-    ExLlamaV2Attention,
-    ExLlamaV2MLP,
-    ExLlamaV2MoEMLP,
-    ExLlamaV2Linear,
-    ExLlamaV2RMSNorm,
-    ExLlamaV2LayerNorm
-)
+import gc
+import math
+import os
 
+import torch
+import torch.nn.functional as F
 from safetensors import safe_open
 from safetensors.torch import save_file
-from conversion.qparams import QParams, qparams_headoptions, qparams_attn, qparams_mlp, get_qparams_reduced
+
 from conversion.adaptivegptq import AdaptiveGPTQ
-import torch
-from torch import nn
-import os, time, math, json
-import torch.nn.functional as F
-import gc
+from conversion.qparams import QParams, qparams_headoptions
+from exllamav2.model import (
+    ExLlamaV2Attention,
+    ExLlamaV2LayerNorm,
+    ExLlamaV2Linear,
+    ExLlamaV2MLP,
+    ExLlamaV2MoEMLP,
+    ExLlamaV2RMSNorm,
+)
+
 
 def list_live_tensors():
-
     tensors = {}
     gc.collect()
     torch.cuda.empty_cache()
 
     for obj in gc.get_objects():
         try:
-            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+            if torch.is_tensor(obj) or (hasattr(obj, "data") and torch.is_tensor(obj.data)):
                 d = str(obj.size()) + ", " + str(obj.dtype) + ", " + str(obj.device)
                 if d in tensors.keys():
                     tensors[d] += 1
                 else:
                     tensors[d] = 1
-        except:
+        except Exception:
             pass
 
     print("-----------")
@@ -43,19 +42,15 @@ def list_live_tensors():
 
 # Quantize
 
-def quant_linear(job: dict,
-                 source: ExLlamaV2Linear,
-                 lq: AdaptiveGPTQ,
-                 qparams: dict,
-                 drop = False):
 
+def quant_linear(job: dict, source: ExLlamaV2Linear, lq: AdaptiveGPTQ, qparams: dict, drop=False):
     qp = QParams.from_dict(qparams)
     print(f" -- Linear: {source.key} -> {qp.get_desc()}, {qp.bpw(source.linear.weight.T.shape):.2f} bpw")
 
     # Quantize
 
     lq.configure(qp.group_size, qp.bits, qp.bits_prop, qp.scale_bits)
-    lq.quantize(keep_qweight = True, apply = True)
+    lq.quantize(keep_qweight=True, apply=True)
 
     # Pack and save quantized layer
 
@@ -65,15 +60,19 @@ def quant_linear(job: dict,
 
     # Drop buffers from quantizer to free VRAM
 
-    if drop: lq.drop_buffers()
+    if drop:
+        lq.drop_buffers()
 
     # Reconstruct from packed layer
 
-    recons_linear = ExLlamaV2Linear(source.model, source.key, source.in_features, source.out_features, source.has_bias)
+    recons_linear = ExLlamaV2Linear(
+        source.model, source.key, source.in_features, source.out_features, source.has_bias
+    )
     recons_linear.device_idx = source.device_idx
     recons_dict = {}
     recons_keys = ["q_weight", "q_invperm", "q_scale", "q_scale_max", "q_groups"]
-    if source.has_bias: recons_keys += ["bias"]
+    if source.has_bias:
+        recons_keys += ["bias"]
     for k in recons_keys:
         recons_dict[k] = packed_dict[source.key + "." + k]
     recons_dict["q_perm"] = torch.argsort(recons_dict["q_invperm"]).to(torch.int)
@@ -84,11 +83,12 @@ def quant_linear(job: dict,
     quant_w = source.linear.weight.T
     recons_w = recons_linear.get_weight_tensor_dq()
 
-    ident = torch.eye(recons_linear.in_features, dtype = torch.half).cuda()
-    recons_w2 = recons_linear.forward(ident, force_cuda = True)
+    ident = torch.eye(recons_linear.in_features, dtype=torch.half).cuda()
+    recons_w2 = recons_linear.forward(ident, force_cuda=True)
 
     recons_w2.sub_(quant_w)
-    if recons_linear.has_bias: recons_w2.sub_(recons_dict["bias"])
+    if recons_linear.has_bias:
+        recons_w2.sub_(recons_dict["bias"])
     recons_w2.abs_()
     diff2 = torch.max(recons_w2)
 
@@ -103,7 +103,9 @@ def quant_linear(job: dict,
         print(" ## Quantization error (2)")
         os._exit(0)
     elif diff1 > 0.01 or diff2 > 0.01:
-        print(f" !! Warning, difference of ({diff1:.6f}, {diff2:.6f}) between unpacked and dequantized matrices")
+        print(
+            f" !! Warning, difference of ({diff1:.6f}, {diff2:.6f}) between unpacked and dequantized matrices"
+        )
 
     # Free reconstructed linear layer
 
@@ -115,7 +117,6 @@ def quant_linear(job: dict,
 
 
 def quant_attn(job, module, hidden_states, target_states, quantizers, cache, attn_params, strat):
-
     quantizers["q_proj"].prepare()
     quantizers["k_proj"].reuse_h(quantizers["q_proj"])
     quantizers["v_proj"].reuse_h(quantizers["q_proj"])
@@ -128,28 +129,27 @@ def quant_attn(job, module, hidden_states, target_states, quantizers, cache, att
 
 
 def quant_mlp(job, module, hidden_states, target_states, quantizers, cache, attn_params, strat):
-
     quantizers["gate_proj"].prepare()
     quantizers["up_proj"].reuse_h(quantizers["gate_proj"])
 
     quant_linear(job, module.gate_proj, quantizers["gate_proj"], strat["gate_proj"])
-    del quantizers[f"gate_proj"]
+    del quantizers["gate_proj"]
     quant_linear(job, module.up_proj, quantizers["up_proj"], strat["up_proj"])
-    del quantizers[f"up_proj"]
+    del quantizers["up_proj"]
 
     quantizers["down_proj"].prepare()
 
     quant_linear(job, module.down_proj, quantizers["down_proj"], strat["down_proj"])
-    del quantizers[f"down_proj"]
+    del quantizers["down_proj"]
 
 
 def quant_moe_mlp(job, module, hidden_states, target_states, quantizers, cache, attn_params, strat):
-
     num_experts = module.model.config.num_experts
 
     quantizers["w1.0"].prepare()
     for i in range(num_experts):
-        if i > 0: quantizers[f"w1.{i}"].reuse_h(quantizers["w1.0"])
+        if i > 0:
+            quantizers[f"w1.{i}"].reuse_h(quantizers["w1.0"])
         quantizers[f"w2.{i}"].prepare()
         quantizers[f"w3.{i}"].reuse_h(quantizers["w1.0"])
 
@@ -163,11 +163,10 @@ def quant_moe_mlp(job, module, hidden_states, target_states, quantizers, cache, 
 
 
 def quant_lm_head(job, module, hidden_states, quantizers, cache, attn_params):
-
     quantizers["lm_head"].prepare()
 
     qp = qparams_headoptions[job["head_bits"]]
-    quant_linear(job, module, quantizers["lm_head"], qp.get_dict(), drop = True)
+    quant_linear(job, module, quantizers["lm_head"], qp.get_dict(), drop=True)
 
 
 # def testc(module, states, target_states, norm, layers):
@@ -207,7 +206,6 @@ def quant_lm_head(job, module, hidden_states, quantizers, cache, attn_params):
 
 @torch.inference_mode()
 def quant(job, save_fn, model):
-
     snapshot_interval = 10
     temp_filename = os.path.join(job["out_dir"], "hidden_states_temp.safetensors")
     states_filename = os.path.join(job["out_dir"], "hidden_states.safetensors")
@@ -215,12 +213,12 @@ def quant(job, save_fn, model):
 
     # Quantize
 
-    if not "q_last_module_idx" in job:
+    if "q_last_module_idx" not in job:
         job["q_last_module_idx"] = 0
 
     hidden_states = []
     # hidden_i_states = []
-    with safe_open(states_filename, framework = "pt", device = "cpu") as f:
+    with safe_open(states_filename, framework="pt", device="cpu") as f:
         for k in sorted(f.keys()):
             if k.startswith("row"):
                 hidden_states.append(f.get_tensor(k))
@@ -229,9 +227,9 @@ def quant(job, save_fn, model):
 
     index = job["q_last_module_idx"]
     while True:
-
         index += 1
-        if index >= len(model.modules): break
+        if index >= len(model.modules):
+            break
 
         # Prepare module
 
@@ -277,16 +275,19 @@ def quant(job, save_fn, model):
         # Reference forward pass
 
         cache = None
-        attn_params = ExLlamaV2Attention.Params(1, hidden_states[0].shape[1], 0, None, None) if mode == "self_attn" else None
+        attn_params = (
+            ExLlamaV2Attention.Params(1, hidden_states[0].shape[1], 0, None, None)
+            if mode == "self_attn"
+            else None
+        )
 
         target_states = []
         if mode == "block_sparse_moe":
             uncalibrated_experts = [0 for _ in range(model.config.num_experts)]
 
         for i in range(len(hidden_states)):
-
             x = hidden_states[i].to("cuda:0")
-            outputs = module.forward(x, cache, attn_params, intermediates = True)
+            outputs = module.forward(x, cache, attn_params, intermediates=True)
 
             # Hessians
 
@@ -320,7 +321,9 @@ def quant(job, save_fn, model):
             for j in range(model.config.num_experts):
                 ue = uncalibrated_experts[j]
                 if ue > len(hidden_states) * 0.10:
-                    print(f" !! Warning: w2.{j} has less than 10% calibration for {ue}/{len(hidden_states)} rows")
+                    print(
+                        f" !! Warning: w2.{j} has less than 10% calibration for {ue}/{len(hidden_states)} rows"
+                    )
 
         # Conversion
 
@@ -337,7 +340,6 @@ def quant(job, save_fn, model):
             quant_moe_mlp(job, module, hidden_states, target_states, quantizers, cache, attn_params, strat)
 
         if mode == "linear":
-
             model.drop_device_tensors()
             gc.collect()  # shruge
             torch.cuda.empty_cache()
@@ -350,7 +352,7 @@ def quant(job, save_fn, model):
         # Post-quantization forward pass
 
         if mode == "linear":
-            with safe_open(job["cal_filename"], framework = "pt", device = "cpu") as f:
+            with safe_open(job["cal_filename"], framework="pt", device="cpu") as f:
                 cal_ids = f.get_tensor("input_ids")
 
         rfn_sum = 0
@@ -360,9 +362,7 @@ def quant(job, save_fn, model):
 
         q_states = []
         for i in range(len(hidden_states)):
-
             if mode != "linear":
-
                 x = hidden_states[i].to("cuda:0")
                 output = module.forward(x, cache, attn_params)
                 x = None
@@ -372,23 +372,25 @@ def quant(job, save_fn, model):
                 output_ref = target_states[i].to("cuda:0")
                 output_ref = output_ref[0].float()
 
-                rfn_sum += (torch.linalg.norm(output - output_ref, 'fro') / torch.linalg.norm(output_ref, 'fro')).item()
+                rfn_sum += (
+                    torch.linalg.norm(output - output_ref, "fro") / torch.linalg.norm(output_ref, "fro")
+                ).item()
                 rfn_count += 1
 
                 output_ref = None
                 output = None
 
             elif i < job["measurement_rows"]:
-
                 x = hidden_states[i].to("cuda:0")
                 output = module.forward(x, cache, attn_params)
-                if module.padding > 0: output = output[:, :, :-module.padding]
+                if module.padding > 0:
+                    output = output[:, :, : -module.padding]
 
                 logits = output[:, :-1, :]
                 logits = logits.float() + 1e-10
-                target_ids = cal_ids[i:i+1, 1:].to("cuda:0")
+                target_ids = cal_ids[i : i + 1, 1:].to("cuda:0")
 
-                log_probs = F.log_softmax(logits, dim = -1)
+                log_probs = F.log_softmax(logits, dim=-1)
                 token_log_probs = log_probs.gather(-1, target_ids.unsqueeze(-1)).squeeze(-1)
                 logprob_sum += token_log_probs.sum().item()
                 logprob_count += target_ids.numel()
@@ -398,12 +400,10 @@ def quant(job, save_fn, model):
                 token_log_probs = None
 
         if mode != "linear":
-
             err = rfn_sum / rfn_count
             print(f" -- Module quantized, rfn_error: {err:1.6f}")
 
         else:
-
             mean_log_prob = logprob_sum / logprob_count
             perplexity = math.exp(-mean_log_prob)
 
@@ -426,7 +426,6 @@ def quant(job, save_fn, model):
         # Checkpoint
 
         if index % snapshot_interval == 0 or index == len(model.modules) - 1:
-
             if mode != "linear":
                 save_dict = {f"row.{idx:05}": h for idx, h in enumerate(hidden_states)}
                 # save_dict.update( {f"i_row.{idx:05}": h for idx, h in enumerate(hidden_i_states)} )

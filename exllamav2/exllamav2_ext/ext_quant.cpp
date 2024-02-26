@@ -146,4 +146,3 @@ void quantize
         maxq
     );
 }
-

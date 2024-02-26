@@ -1,19 +1,14 @@
-from exllamav2 import (
-    ExLlamaV2,
-    ExLlamaV2Tokenizer
-)
-
 from exllamav2.generator.filters.base import ExLlamaV2Filter
 
-class ExLlamaV2SelectFilter(ExLlamaV2Filter):
 
+class ExLlamaV2SelectFilter(ExLlamaV2Filter):
     options: list
     offset: int
     prefix: str
     case_insensitive: bool
     sequence_str_cmp: str
 
-    def __init__(self, model, tokenizer, options, case_insensitive = False):
+    def __init__(self, model, tokenizer, options, case_insensitive=False):
         super().__init__(model, tokenizer)
 
         self.options = options if not case_insensitive else [o.lower() for o in options]
@@ -22,17 +17,13 @@ class ExLlamaV2SelectFilter(ExLlamaV2Filter):
         self.prefix = ""
         self.sequence_str_cmp = ""
 
-
-    def begin(self, prefix_str = ""):
-
+    def begin(self, prefix_str=""):
         self.sequence_str = ""
         self.sequence_str_cmp = ""
         self.prefix = prefix_str
         self.offset = 0
 
-
     def feed(self, token):
-
         id_to_piece = self.tokenizer.get_id_to_piece_list()
         piece = id_to_piece[token]
         self.sequence_str += piece
@@ -45,45 +36,46 @@ class ExLlamaV2SelectFilter(ExLlamaV2Filter):
             self.sequence_str_cmp += piece
         self.offset += len(piece)
 
-
     # TODO: Evaluate overhead and maybe move to extension
 
     def next(self):
-
         # prefix_to_ids = self.tokenizer.get_prefix_to_ids_dict()
         id_to_piece = self.tokenizer.get_id_to_piece_list()
         # pass_str = set()
         # end_str = set()
 
-        char_trie = self.tokenizer.get_char_trie_ci() if self.case_insensitive else self.tokenizer.get_char_trie()
+        char_trie = (
+            self.tokenizer.get_char_trie_ci() if self.case_insensitive else self.tokenizer.get_char_trie()
+        )
         pass_tokens = set()
         end_tokens = set()
 
         for o in self.options:
+            option = self.prefix + o
+            if option[: self.offset] != self.sequence_str_cmp:
+                continue
 
-            option = (self.prefix + o)
-            if option[:self.offset] != self.sequence_str_cmp: continue
-
-            option = option[self.offset:]
+            option = option[self.offset :]
 
             if self.case_insensitive:
                 option_cased = option
                 option = option.lower()
             else:
                 option_cased = None
-            if option_cased == option: option_cased = None
+            if option_cased == option:
+                option_cased = None
 
             w = char_trie
             while option != "":
-
                 c = option[0]
                 option = option[1:]
 
-                if c in w.children: w = w.children[c]
-                else: break
+                if c in w.children:
+                    w = w.children[c]
+                else:
+                    break
 
                 if len(w.leaf) > 0:
-
                     # Add tokens to pass set
 
                     if option_cased is None:
@@ -96,13 +88,13 @@ class ExLlamaV2SelectFilter(ExLlamaV2Filter):
                     # Special case if prefix is cased but continuation is case-insensitive
 
                     else:
-                        for l in list(w.leaf):
-                            s = id_to_piece[l]
+                        for tok in list(w.leaf):
+                            s = id_to_piece[tok]
                             if option_cased.startswith(s):
-                                pass_tokens.add(l)
+                                pass_tokens.add(tok)
                                 # pass_str.add(s)
                                 if option == "":
-                                    end_tokens.add(l)
+                                    end_tokens.add(tok)
                                     # end_str.add(s)
 
         return pass_tokens, end_tokens

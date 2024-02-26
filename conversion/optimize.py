@@ -1,9 +1,7 @@
-from conversion.qparams import QParams
-import math
 import itertools
 
-def optimize(job, save_fn, model):
 
+def optimize(job, save_fn, model):
     error_norm = 2.4
     max_step_size = 2
 
@@ -102,7 +100,8 @@ def optimize(job, save_fn, model):
     f_solution = [0] * num_layers * 2
     weight = sum(weights[i][0] for i in range(num_layers * 2))
     value = 1
-    for i in range(num_layers * 2): value *= values[i][0]
+    for i in range(num_layers * 2):
+        value *= values[i][0]
 
     while True:
         min_idx = -1
@@ -115,7 +114,8 @@ def optimize(job, save_fn, model):
                     if added_w + weight <= weight_budget:
                         min_idx = i
                         min_value = values[i][s]
-        if min_idx == -1: break
+        if min_idx == -1:
+            break
         s = f_solution[min_idx]
         weight += weights[min_idx][s + 1] - weights[min_idx][s]
         value *= values[min_idx][s + 1] / values[min_idx][s]
@@ -124,21 +124,24 @@ def optimize(job, save_fn, model):
     bpw = weight / numel
     print(f" -- Score: {value:.8f}  bpw: {bpw:.4f}")
 
-    def improve(solution, s_weight, hold = None):
-
-        if hold is None: hold = []
+    def improve(solution, s_weight, hold=None):
+        if hold is None:
+            hold = []
         best_idx = -1
         best_ratio = 0
         best_add_w = 0
         best_add_v = 0
         for idx in range(num_layers * 2):
-            if idx in hold: continue
+            if idx in hold:
+                continue
 
             si = solution[idx]
-            if si == len(weights[idx]) - 1: continue
+            if si == len(weights[idx]) - 1:
+                continue
 
             add_w = weights[idx][si + 1] - weights[idx][si]
-            if s_weight + add_w > weight_budget: continue
+            if s_weight + add_w > weight_budget:
+                continue
 
             add_v = values[idx][si + 1] / values[idx][si]
             ratio = add_v / add_w
@@ -149,7 +152,6 @@ def optimize(job, save_fn, model):
                 best_add_v = add_v
 
         return best_idx, best_add_w, best_add_v
-
 
     # #
     # # while True:
@@ -169,16 +171,15 @@ def optimize(job, save_fn, model):
     step_size = 1
 
     while True:
-
         for i, j in itertools.permutations(range(num_layers * 2), 2):
-
             t_solution = f_solution.copy()
             t_solution[i] = max(t_solution[i] - step_size, 0)
             t_solution[j] = max(t_solution[j] - step_size, 0)
 
             t_weight = sum(weights[k][t_solution[k]] for k in range(num_layers * 2))
             t_value = 1
-            for k in range(num_layers * 2): t_value *= values[k][t_solution[k]]
+            for k in range(num_layers * 2):
+                t_value *= values[k][t_solution[k]]
 
             while True:
                 b_idx, b_add_w, b_add_v = improve(t_solution, t_weight, [i, j])
@@ -195,7 +196,8 @@ def optimize(job, save_fn, model):
 
         if best_value == prev_best_value:
             step_size += 1
-            if step_size > max_step_size: break
+            if step_size > max_step_size:
+                break
             continue
 
         bpw = t_weight / numel
@@ -208,13 +210,12 @@ def optimize(job, save_fn, model):
 
     job["strategy"] = {}
     for layer_ in range(num_layers):
-
         k1 = "model.layers." + str(layer_) + ".self_attn"
         k2 = "model.layers." + str(layer_) + "." + mlp_mode
         p1 = params[layer_ * 2][f_solution[layer_ * 2]]
         p2 = params[layer_ * 2 + 1][f_solution[layer_ * 2 + 1]]
 
-        for (k, p, n) in zip((k1, k2), (p1, p2), (numel_attn, numel_mlp)):
+        for k, p, n in zip((k1, k2), (p1, p2), (numel_attn, numel_mlp)):
             job["strategy"][k] = p
             bpw = p["total_bits"] / n
             err = 1 - p["accuracy"]

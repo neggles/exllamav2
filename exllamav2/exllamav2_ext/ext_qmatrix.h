@@ -33,5 +33,3 @@ void gemm_half_q_half
     torch::Tensor c,
     bool force_cuda
 );
-
-

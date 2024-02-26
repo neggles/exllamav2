@@ -1,22 +1,23 @@
 import torch
-import pandas, fastparquet
+import pandas
 import os
 from safetensors.torch import save_file
 import random
 
-def get_tokens(num_rows, length, filename, tokenizer):
 
+def get_tokens(num_rows, length, filename, tokenizer):
     min_tokens = num_rows * length
 
-    df = pandas.read_parquet(filename, engine = "fastparquet")
-    df['concatenated'] = df.apply(lambda r: ' '.join([str(v) for v in r.values]), axis = 1)
+    df = pandas.read_parquet(filename, engine="fastparquet")
+    df["concatenated"] = df.apply(lambda r: " ".join([str(v) for v in r.values]), axis=1)
 
-    all_tokens = torch.empty((1,0), dtype = torch.long)
+    all_tokens = torch.empty((1, 0), dtype=torch.long)
 
-    for _, row in df['concatenated'].items():
+    for _, row in df["concatenated"].items():
         tokens = tokenizer.encode(row)
-        all_tokens = torch.cat((all_tokens, tokens), dim = -1)
-        if all_tokens.shape[-1] >= min_tokens: break
+        all_tokens = torch.cat((all_tokens, tokens), dim=-1)
+        if all_tokens.shape[-1] >= min_tokens:
+            break
 
     if all_tokens.shape[-1] < min_tokens:
         print(f" ** Warning: Not enough sample data in {filename}")
@@ -35,8 +36,7 @@ def get_tokens(num_rows, length, filename, tokenizer):
     return all_tokens
 
 
-def tokenize(job, save_fn, tokenizer, measure = False):
-
+def tokenize(job, save_fn, tokenizer, measure=False):
     cal_ds = job["cal_dataset"]
 
     if cal_ds is not None:
@@ -47,18 +47,17 @@ def tokenize(job, save_fn, tokenizer, measure = False):
         cal_tokens = get_standard_calibration(measure, tokenizer)
 
     cal_filename = os.path.join(job["out_dir"], "cal_data.safetensors")
-    cal_dict = { "input_ids": cal_tokens }
+    cal_dict = {"input_ids": cal_tokens}
     save_file(cal_dict, cal_filename)
     job["cal_filename"] = cal_filename
 
 
 def get_standard_calibration(measure, tokenizer):
-
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "standard_cal_data")
-    file_c4 =os.path.join(data_dir, "c4.utf8")
-    file_code =os.path.join(data_dir, "code.utf8")
-    file_multilingual =os.path.join(data_dir, "multilingual.utf8")
-    file_technical =os.path.join(data_dir, "technical.utf8")
+    file_c4 = os.path.join(data_dir, "c4.utf8")
+    file_code = os.path.join(data_dir, "code.utf8")
+    file_multilingual = os.path.join(data_dir, "multilingual.utf8")
+    file_technical = os.path.join(data_dir, "technical.utf8")
     file_wiki = os.path.join(data_dir, "wiki.utf8")
     file_tiny = os.path.join(data_dir, "tiny.utf8")
 
@@ -83,15 +82,15 @@ def get_standard_calibration(measure, tokenizer):
     tokenized_rows = tokens.view(-1, 2048)
 
     for i in range(rows_c4):
-        rows.append(tokenized_rows[i:i+1])
+        rows.append(tokenized_rows[i : i + 1])
 
     # Wiki: 24 aligned rows + 24 aligned rows with BOS
 
     with open(file_wiki, "r", encoding="utf8") as f:
         text = f.read()
 
-    articles = [a[a.find("\n") + 1:] for a in text.split("</doc>\n")]
-    tokenized_articles = [tokenizer.encode(a, add_bos = True, add_eos = True) for a in articles]
+    articles = [a[a.find("\n") + 1 :] for a in text.split("</doc>\n")]
+    tokenized_articles = [tokenizer.encode(a, add_bos=True, add_eos=True) for a in articles]
 
     idx = 0
     for r in range(rows_wiki):
@@ -100,9 +99,11 @@ def get_standard_calibration(measure, tokenizer):
         while length < 2049:
             length += tokenized_articles[idx].shape[-1]
             idx += 1
-        row = torch.cat(tokenized_articles[idx0 : idx], dim = -1)
-        if r < rows_wiki // 2: row = row[:, 1:2049]
-        else: row = row[:, :2048]
+        row = torch.cat(tokenized_articles[idx0:idx], dim=-1)
+        if r < rows_wiki // 2:
+            row = row[:, 1:2049]
+        else:
+            row = row[:, :2048]
         rows.append(row)
 
     # Code: 15 rows
@@ -115,7 +116,7 @@ def get_standard_calibration(measure, tokenizer):
     tokenized_rows = tokens.view(-1, 2048)
 
     for i in range(rows_code):
-        rows.append(tokenized_rows[i:i+1])
+        rows.append(tokenized_rows[i : i + 1])
 
     # Tinystories: 5 aligned rows + 5 aligned rows with BOS
 
@@ -123,7 +124,7 @@ def get_standard_calibration(measure, tokenizer):
         text = f.read()
 
     articles = text.split("<|endoftext|>")
-    tokenized_articles = [tokenizer.encode(a.strip(), add_bos = True, add_eos = True) for a in articles]
+    tokenized_articles = [tokenizer.encode(a.strip(), add_bos=True, add_eos=True) for a in articles]
 
     idx = 0
     for r in range(rows_tiny):
@@ -132,9 +133,11 @@ def get_standard_calibration(measure, tokenizer):
         while length < 2049:
             length += tokenized_articles[idx].shape[-1]
             idx += 1
-        row = torch.cat(tokenized_articles[idx0 : idx], dim = -1)
-        if r < rows_tiny // 2: row = row[:, 1:2049]
-        else: row = row[:, :2048]
+        row = torch.cat(tokenized_articles[idx0:idx], dim=-1)
+        if r < rows_tiny // 2:
+            row = row[:, 1:2049]
+        else:
+            row = row[:, :2048]
         rows.append(row)
 
     # Multilingual: 15 rows + 5 shuffled rows
@@ -147,7 +150,7 @@ def get_standard_calibration(measure, tokenizer):
     tokenized_rows = tokens.view(-1, 2048)
 
     for i in range(rows_multilingual):
-        rows.append(tokenized_rows[i:i+1])
+        rows.append(tokenized_rows[i : i + 1])
 
     tokenized_rows = tokens.view(-1, 128)
     random.seed(69420)
@@ -156,14 +159,14 @@ def get_standard_calibration(measure, tokenizer):
         for j in range(2048 // 128):
             k = random.randint(0, tokenized_rows.shape[0] - 1)
             row.append(tokenized_rows[k].unsqueeze(0))
-        rows.append(torch.cat(row, dim = -1))
+        rows.append(torch.cat(row, dim=-1))
 
     # Randomized: 2 rows
 
     vocab_size = tokenizer.get_vocab_size()
     random.seed(69420)
     for i in range(rows_random):
-        row = torch.randint(0, vocab_size, (1, 2048), dtype = torch.long)
+        row = torch.randint(0, vocab_size, (1, 2048), dtype=torch.long)
         rows.append(row)
 
     # Technical: 10 rows
@@ -176,7 +179,7 @@ def get_standard_calibration(measure, tokenizer):
     tokenized_rows = tokens.view(-1, 2048)
 
     for i in range(rows_technical):
-        rows.append(tokenized_rows[i:i+1])
+        rows.append(tokenized_rows[i : i + 1])
 
     # for idx, r in enumerate(rows):
     #     print("------------------------------------------------------------------------------")
@@ -184,17 +187,4 @@ def get_standard_calibration(measure, tokenizer):
     #     print("--------")
     #     print(tokenizer.decode(r))
 
-    return torch.cat(rows, dim = 0)
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return torch.cat(rows, dim=0)
