@@ -4,11 +4,11 @@ import os
 
 import torch
 import torch.nn.functional as F
+from conversion.adaptivegptq import AdaptiveGPTQ
+from conversion.qparams import QParams, qparams_headoptions
 from safetensors import safe_open
 from safetensors.torch import save_file
 
-from conversion.adaptivegptq import AdaptiveGPTQ
-from conversion.qparams import QParams, qparams_headoptions
 from exllamav2.model import (
     ExLlamaV2Attention,
     ExLlamaV2LayerNorm,

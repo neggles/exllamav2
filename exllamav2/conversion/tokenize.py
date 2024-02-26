@@ -1,8 +1,9 @@
-import torch
-import pandas
 import os
-from safetensors.torch import save_file
 import random
+
+import pandas
+import torch
+from safetensors.torch import save_file
 
 
 def get_tokens(num_rows, length, filename, tokenizer):

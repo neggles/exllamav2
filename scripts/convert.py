@@ -1,15 +1,16 @@
-from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Tokenizer
 import argparse
+import json
 import os
 import shutil
 import sys
-import json
-from conversion.tokenize import tokenize
-from conversion.measure import embeddings, measure_quant
-from conversion.quantize import quant
-from conversion.optimize import optimize
-from conversion.compile import compile_model
-from conversion.qparams import qparams_headoptions
+
+from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Tokenizer
+from exllamav2.conversion.compile import compile_model
+from exllamav2.conversion.measure import embeddings, measure_quant
+from exllamav2.conversion.optimize import optimize
+from exllamav2.conversion.qparams import qparams_headoptions
+from exllamav2.conversion.quantize import quant
+from exllamav2.conversion.tokenize import tokenize
 
 parser = argparse.ArgumentParser(description="Convert model to ExLlamaV2")
 parser.add_argument("-i", "--in_dir", type=str, help="Input directory", default="")
