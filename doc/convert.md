@@ -94,8 +94,8 @@ measurement pass on subsequent quants of the same model.
 
 Convert a model and create a directory containing the quantized version with all of its original files:
 
-```
-python convert.py \
+```py
+python scripts/convert.py \
     -i /mnt/models/llama2-7b-fp16/ \
     -o /mnt/temp/exl2/ \
     -cf /mnt/models/llama2-7b-exl2/3.0bpw/ \
@@ -104,8 +104,8 @@ python convert.py \
 
 Run just the measurement pass on a model, clearing the working directory first:
 
-```
-python convert.py \
+```py
+python scripts/convert.py \
     -i /mnt/models/llama2-7b-fp16/ \
     -o /mnt/temp/exl2/ \
     -nr \
@@ -114,16 +114,18 @@ python convert.py \
 
 Use that measurement to quantize the model at two different bitrates:
 
-```
-python convert.py \
+```py
+python scripts/convert.py \
     -i /mnt/models/llama2-7b-fp16/ \
     -o /mnt/temp/exl2/ \
     -nr \
     -m /mnt/models/llama2-7b-exl2/measurement.json \
     -cf /mnt/models/llama2-7b-exl2/4.0bpw/ \
     -b 4.0
-    
-python convert.py \
+```
+
+```py
+python scripts/convert.py \
     -i /mnt/models/llama2-7b-fp16/ \
     -o /mnt/temp/exl2/ \
     -nr \
