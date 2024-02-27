@@ -32,6 +32,15 @@ dependencies = [
   "setuptools_scm>=8",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "lm-format-enforcer>=0.9.0",
+  "pydantic>=2.0.0",
+]
+all = [
+  "exllamav2[dev]",
+]
+
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
@@ -87,7 +96,7 @@ exclude = [
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-wrap-aliases = true
-known-local-folder = ["exllamav2"]
+known-local-folder = ["examples", "tests", "scripts"]
 known-first-party = ["exllamav2"]
 
 
