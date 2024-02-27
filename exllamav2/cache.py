@@ -1,38 +1,42 @@
+from abc import ABC, abstractmethod
+from typing import Optional
+
 import torch
 from torch import Tensor
 
 from exllamav2.ext import exllamav2_ext as ext_c
+from exllamav2.model import ExLlamaV2
 
 
-class ExLlamaV2CacheBase:
-    model = None
-    max_seq_len: int
-    batch_size: int
+class ExLlamaV2CacheBase(ABC):
+    def __init__(
+        self,
+        model: ExLlamaV2,
+        batch_size: int,
+        max_seq_len: int = -1,
+        copy_from: Optional["ExLlamaV2CacheBase"] = None,
+        lazy: bool = False,
+    ):
+        # set by downstream classes
+        self.dtype: torch.dtype
+        if not hasattr(self, "dtype"):
+            raise NotImplementedError("dtype not set")
 
-    current_seq_len: int
+        self.model: ExLlamaV2 = model
+        self.max_seq_len: int = max_seq_len if max_seq_len != -1 else self.model.config.max_seq_len
+        self.batch_size: int = batch_size
 
-    key_states: list
-    value_states: list
-    num_key_value_heads: int
-    num_hidden_layers: int
-    head_dim: int
+        self.current_seq_len: int = 0
 
-    dtype = None
+        self.key_states: list[Tensor] = []
+        self.value_states: list[Tensor] = []
+        self.num_key_value_heads: int = self.model.config.num_key_value_heads
+        self.num_hidden_layers: int = self.model.config.num_hidden_layers
+        self.head_dim: int = self.model.config.head_dim
 
-    def __init__(self, model, batch_size, max_seq_len):
-        self.model = model
-        self.max_seq_len = max_seq_len if max_seq_len != -1 else self.model.config.max_seq_len
-        self.batch_size = batch_size
-        self.current_seq_len = 0
+        self.create_state_tensors(copy_from, lazy)
 
-        self.key_states = []
-        self.value_states = []
-
-        self.num_key_value_heads = self.model.config.num_key_value_heads
-        self.num_hidden_layers = self.model.config.num_hidden_layers
-        self.head_dim = self.model.config.head_dim
-
-    def create_state_tensors(self, copy_from, lazy=False):
+    def create_state_tensors(self, copy_from: "ExLlamaV2CacheBase", lazy: bool = False):
         if copy_from is not None and lazy is True:
             raise ValueError("Cannot copy cache and use lazy cache initialization")
 
@@ -106,19 +110,38 @@ class ExLlamaV2CacheBase:
 
         self.current_seq_len -= 1
 
+    @abstractmethod
     def get_kv_state(self, layer_idx: int, batch_size: int, offset: int, width: int) -> tuple[Tensor, Tensor]:
-        raise NotImplementedError
+        raise NotImplementedError("Abstract base class was called")
 
+    @abstractmethod
     def store_kv_state(self, layer_idx: int, batch_size: int, offset: int, width: int):
-        raise NotImplementedError
+        raise NotImplementedError("Abstract base class was called")
+
+    def touch_device(self, device: torch.device | str):
+        device = torch.device(device)
+        return
 
     def copy_states(
-        self, target, from_column, from_columns, to_column, to_columns, from_row, from_rows, to_row, to_rows
+        self,
+        target: "ExLlamaV2CacheBase",
+        from_column: int,
+        from_columns: int,
+        to_column: int,
+        to_columns: int,
+        from_row: int,
+        from_rows: int,
+        to_row: int,
+        to_rows: int,
     ):
-        assert from_rows == 1
-        assert from_columns == to_columns
-        assert to_column + to_columns <= target.max_seq_len
-        assert from_column + from_columns <= self.max_seq_len
+        if from_rows != 1:
+            raise ValueError("from_rows must be 1")
+        if from_columns != to_columns:
+            raise ValueError("from_columns must equal to_columns")
+        if to_column + to_columns > target.max_seq_len:
+            raise ValueError("to_column + to_columns must be <= target.max_seq_len")
+        if from_column + from_columns > self.max_seq_len:
+            raise ValueError("from_column + from_columns must be <= self.max_seq_len")
 
         num_hidden_layers = self.model.config.num_hidden_layers
 
@@ -139,15 +162,19 @@ class ExLlamaV2CacheBase:
             target_view_k.copy_(source_view_k)
             target_view_v.copy_(source_view_v)
 
-    def touch_device(self, device):
-        pass
-
 
 class ExLlamaV2Cache(ExLlamaV2CacheBase):
-    def __init__(self, model, batch_size=1, max_seq_len=-1, copy_from=None, lazy=False):
+    def __init__(
+        self,
+        model: ExLlamaV2,
+        batch_size: int,
+        max_seq_len: int = -1,
+        copy_from: Optional[ExLlamaV2CacheBase] = None,
+        lazy: bool = False,
+    ):
+        self.dtype = torch.float16
         super().__init__(model, batch_size, max_seq_len)
 
-        self.dtype = torch.half
         self.create_state_tensors(copy_from, lazy)
 
     def get_kv_state(self, layer_idx: int, batch_size: int, offset: int, width: int) -> tuple[Tensor, Tensor]:
@@ -156,7 +183,7 @@ class ExLlamaV2Cache(ExLlamaV2CacheBase):
     def store_kv_state(self, layer_idx: int, batch_size: int, offset: int, width: int):
         pass
 
-    def footprint(self):
+    def footprint(self) -> list[int]:
         fp = []
         for layer in self.key_states + self.value_states:
             dev = layer.device.index
@@ -165,29 +192,37 @@ class ExLlamaV2Cache(ExLlamaV2CacheBase):
             fp[dev] += layer.numel() * 2
         return fp
 
-    def clone(self):
+    def clone(self) -> "ExLlamaV2Cache":
         new = ExLlamaV2Cache(
-            self.model, batch_size=self.batch_size, max_seq_len=self.max_seq_len, copy_from=self
+            self.model,
+            batch_size=self.batch_size,
+            max_seq_len=self.max_seq_len,
+            copy_from=self,
         )
         return new
 
 
 class ExLlamaV2Cache_8bit(ExLlamaV2CacheBase):
-    def __init__(self, model, batch_size=1, max_seq_len=-1, copy_from=None, lazy=False):
-        super().__init__(model, batch_size, max_seq_len)
-
+    def __init__(
+        self,
+        model: ExLlamaV2,
+        batch_size: int,
+        max_seq_len: int = -1,
+        copy_from: Optional[ExLlamaV2CacheBase] = None,
+        lazy: bool = False,
+    ):
         self.dtype = torch.uint8
-        self.create_state_tensors(copy_from, lazy)
+        super().__init__(model, batch_size, max_seq_len, copy_from, lazy)
 
         # Create temp FP16 tensors for accessing FP8 layers
-
-        self.temp_tensors = {}
+        self.temp_tensors: dict[str | torch.device, Tensor] = {}
 
         if not lazy:
             for device in self.model.get_cache_devices():
                 self.touch_device(device)
 
-    def touch_device(self, device):
+    def touch_device(self, device: torch.device | str):
+        device = torch.device(device)
         if device in self.temp_tensors:
             return
         k = torch.zeros(
@@ -207,6 +242,7 @@ class ExLlamaV2Cache_8bit(ExLlamaV2CacheBase):
             device=device,
         ).contiguous()
         self.temp_tensors[device] = (k, v)
+        return
 
     def get_kv_state(self, layer_idx: int, batch_size: int, offset: int, width: int) -> tuple[Tensor, Tensor]:
         device = self.model.cache_map[layer_idx]
@@ -225,7 +261,7 @@ class ExLlamaV2Cache_8bit(ExLlamaV2CacheBase):
         if width > 0:
             ext_c.fp16_to_fp8(temp_value_state, self.value_states[layer_idx], batch_size, offset, width)
 
-    def footprint(self):
+    def footprint(self) -> list[int]:
         fp = []
         for layer in self.key_states + self.value_states:
             dev = layer.device.index
@@ -237,8 +273,11 @@ class ExLlamaV2Cache_8bit(ExLlamaV2CacheBase):
             fp[temp_v.device.index] += temp_v.numel() * 2
         return fp
 
-    def clone(self):
+    def clone(self) -> "ExLlamaV2Cache_8bit":
         new = ExLlamaV2Cache_8bit(
-            self.model, batch_size=self.batch_size, max_seq_len=self.max_seq_len, copy_from=self
+            self.model,
+            batch_size=self.batch_size,
+            max_seq_len=self.max_seq_len,
+            copy_from=self,
         )
         return new
