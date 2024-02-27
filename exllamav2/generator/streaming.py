@@ -1,12 +1,12 @@
 import random
-from ast import Tuple
 from typing import Optional, Union
 
 import torch
 from torch import Tensor
 
 from exllamav2 import ExLlamaV2, ExLlamaV2Cache, ExLlamaV2Lora
-from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
+
+from . import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
 
 
 class ExLlamaV2StreamingGenerator(ExLlamaV2BaseGenerator):
@@ -178,9 +178,9 @@ class ExLlamaV2StreamingGenerator(ExLlamaV2BaseGenerator):
     def stream(
         self,
     ) -> Union[
-        Tuple[str, bool, Tensor],
-        Tuple[str, bool, Tensor, Tensor],
-        Tuple[str, bool, Tensor, Tensor, Tensor],
+        tuple[str, bool, Tensor],
+        tuple[str, bool, Tensor, Tensor],
+        tuple[str, bool, Tensor, Tensor, Tensor],
     ]:
         assert self.return_top_tokens == 0, "Use stream_ex() to return top K probs"
 
@@ -196,7 +196,7 @@ class ExLlamaV2StreamingGenerator(ExLlamaV2BaseGenerator):
         return tuple(ret)
 
     # @profile
-    def _stream(self) -> (str, bool, Tensor, Tensor, Tensor, Tensor):
+    def _stream(self) -> tuple[str, bool, Tensor, Tensor, Tensor, Tensor]:
         # Token healing
 
         if self.heal_next_token:

@@ -1,8 +1,8 @@
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from torch import nn
+from torch.nn import functional as F
 
 from exllamav2 import ext
 from exllamav2.ext import exllamav2_ext as ext_c

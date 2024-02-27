@@ -1,14 +1,10 @@
-import sys
-import os
+import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
+from torch.nn import functional as F
 
 from exllamav2.model import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Linear
 from exllamav2.tokenizer import ExLlamaV2Tokenizer
-import os
-import time
-import torch
-import torch.nn.functional as F
 
 with torch.inference_mode():
     # Full-precision model

@@ -1,8 +1,9 @@
-import sys
-import os
 import gc
+import os
+from pathlib import Path
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
+from datasets import load_dataset
 
 from exllamav2 import (
     ExLlamaV2,
@@ -10,25 +11,13 @@ from exllamav2 import (
     ExLlamaV2Tokenizer,
 )
 
-from datasets import load_dataset
-import torch
-
 # Models to test
 
-# model_base = "/mnt/str/models/_exl2"
-# model_base = "/mnt/str/models/mixtral-8x7b-instruct-exl2/"
-model_base = "/mnt/str/models/tiefighter-13b-exl4/"
+# model_base = Path("/mnt/str/models/_exl2")
+# model_base = Path("/mnt/str/models/mixtral-8x7b-instruct-exl2/")
+model_base = Path("/mnt/str/models/tiefighter-13b-exl4/")
 
-variants = [v for v in os.listdir(model_base) if os.path.isdir(os.path.join(model_base, v))]
-
-# variants = \
-# [
-#     "2.4bpw",
-#     "2.5bpw",
-#     "3.0bpw",
-#     "4.0bpw",
-#     "6.0bpw",
-# ]
+variants = [x for x in model_base.iterdir() if x.is_dir()]
 
 gpu_split = (20, 21.3, 24)
 

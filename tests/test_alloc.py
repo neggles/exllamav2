@@ -1,21 +1,15 @@
-import sys
-import os
 import math
+import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
 
 from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
+    ExLlamaV2Config,
     ExLlamaV2Tokenizer,
 )
-
 from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
-
-import time
-import torch
-
 
 # The allocation to test
 

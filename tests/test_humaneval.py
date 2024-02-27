@@ -1,8 +1,5 @@
 import gc
 import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
 from human_eval.data import read_problems, write_jsonl

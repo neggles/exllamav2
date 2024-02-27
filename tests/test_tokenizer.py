@@ -1,13 +1,11 @@
 import random
+from pathlib import Path
 
 from transformers import AutoTokenizer
 
 from exllamav2 import ExLlamaV2Config, ExLlamaV2Tokenizer
 
-# model_path = "/mnt/str/models/_exl2/deepseek-coder-1.3b"
-# model_path = "/mnt/str/models/_exl2/deepseek-67b-chat/"
-# model_path =  "/mnt/str/models/_exl2/deepseek-coder-33b-instruct-exl2/6.0bpw/"
-model_path = "/mnt/str/models/_exl2/qwen-72b-llamafied/"
+model_path = Path("/mnt/str/models/_exl2/qwen-72b-llamafied/")
 
 reference_tokenizer = AutoTokenizer.from_pretrained(model_path)
 # reference_tokenizer.save_pretrained("/mnt/str/temp/tok/tokenizer.json")

@@ -1,12 +1,8 @@
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from exllamav2.fasttensors import STFile
-from exllamav2.ext import exllamav2_ext as ext_c
-
 import time
+from pathlib import Path
+
+from exllamav2.ext import exllamav2_ext as ext_c
+from exllamav2.fasttensors import STFile
 
 # Single tensor
 
@@ -23,15 +19,18 @@ import time
 # Multi file
 
 stfiles = [
-    "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00001-of-00005.safetensors",
-    "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00002-of-00005.safetensors",
-    "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00003-of-00005.safetensors",
-    "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00004-of-00005.safetensors",
-    "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00005-of-00005.safetensors",
+    Path(x)
+    for x in [
+        "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00001-of-00005.safetensors",
+        "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00002-of-00005.safetensors",
+        "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00003-of-00005.safetensors",
+        "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00004-of-00005.safetensors",
+        "/mnt/str/models/llama2-70b-exl2/4.0bpw/output-00005-of-00005.safetensors",
+    ]
 ]
 
 for stfile in stfiles:
-    stfile_size = os.path.getsize(stfile)
+    stfile_size = stfile.stat().st_size
     sttest = STFile(stfile)
 
     # List tensors

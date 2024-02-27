@@ -1,9 +1,14 @@
+import json
+import sys
+from os import PathLike
+from pathlib import Path
+from warnings import warn
+
+import numpy as np
 import torch
 from safetensors import safe_open
-import numpy as np
-import json
+
 from exllamav2.ext import exllamav2_ext as ext_c
-import os
 
 
 def convert_dtype(dt: str):
@@ -21,8 +26,8 @@ def convert_dtype(dt: str):
         raise ValueError(f"Unknown dtype {dt}")
 
 
-global_stfiles = []
-global_cm = {}
+global_stfiles: list["STFile"] = []
+global_cm: dict[str, "STFile"] = {}
 
 
 def cleanup_stfiles():
@@ -33,6 +38,7 @@ def cleanup_stfiles():
     global_stfiles = []
 
     for f in global_cm.values():
+        # still a war crime.
         f.__exit__(None, None, None)
     global_cm = {}
 
@@ -48,14 +54,14 @@ class STFile:
     fast: bool
     st_context = None
 
-    def __init__(self, filename: str, fast=True):
+    def __init__(self, filename: PathLike, fast=True):
         global global_stfiles
 
-        self.filename = filename
+        self.filename = Path(filename).resolve()
         self.read_dict()
 
-        if fast and os.name == "nt":
-            print(" !! Warning, fasttensors disabled on Windows")
+        if fast and sys.platform == "win32":
+            warn(" !! fasttensors is not supported on Windows")
             fast = False
 
         self.fast = fast
@@ -65,20 +71,22 @@ class STFile:
         global_stfiles.append(self)
 
     @staticmethod
-    def open(filename, fast=True):
+    def open(filename: PathLike, fast=True):
+        filename = Path(filename)
         global global_stfiles
-        for f in global_stfiles:
-            if f.filename == filename:
-                return f
+
+        found = next((f for f in global_stfiles if f.filename == filename), None)
+        if found is not None:
+            return found
         return STFile(filename, fast)
 
     def close(self):
-        if not self.fast:
+        if self.fast is False:
             return
         ext_c.safetensors_close(self.handle)
 
     def read_dict(self):
-        with open(self.filename, "rb") as fp:
+        with self.filename.open("rb") as fp:
             header_size = np.fromfile(fp, dtype=np.int64, count=1).item()
             header_json = fp.read(header_size)
             self.header = json.loads(header_json.decode("utf-8"))
@@ -99,14 +107,16 @@ class STFile:
         length = data_offsets[1] - data_offsets[0]
         return length
 
-    def get_cm(self, device):
+    def get_cm(self, device: str | torch.device):
         global global_cm
+        device = torch.device(device)
 
         cm_key = self.filename + "::" + device
 
         if cm_key in global_cm:
             return global_cm[cm_key]
 
+        # this is a war crime.
         f = safe_open(self.filename, framework="pt", device=device)
         f.__enter__()
         global_cm[cm_key] = f
@@ -115,7 +125,6 @@ class STFile:
     def get_tensor(self, key, device, not_fast=False):
         if not_fast or not self.fast:
             f = self.get_cm(device)
-            # with safe_open(self.filename, framework = "pt", device = device) as f:
             return f.get_tensor(key)
 
         v = self.header[key]
@@ -124,7 +133,8 @@ class STFile:
         data_offsets = v["data_offsets"]
         offset = data_offsets[0] + self.header_size
         length = data_offsets[1] - data_offsets[0]
-        assert np.prod(sh) * dts == length, f"Tensor shape doesn't match storage size: {key}"
+        if np.prod(sh) * dts != length:
+            raise ValueError(f"Tensor shape doesn't match storage size: {key}")
 
         tensor = torch.empty(sh, device=device, dtype=dtt)
         ext_c.safetensors_load(self.handle, tensor, offset, length)

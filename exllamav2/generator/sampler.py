@@ -1,7 +1,8 @@
 import torch
-import torch.nn.functional as F
+from torch.nn import functional as F
+
 from exllamav2 import ExLlamaV2Tokenizer
-from exllamav2.ext import exllamav2_ext as ext_c, none_tensor
+from exllamav2.ext import ext_c, none_tensor
 
 
 class ExLlamaV2Sampler:

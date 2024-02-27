@@ -1,5 +1,6 @@
 import torch
-import torch.nn as nn
+from torch import nn
+
 from exllamav2.config import ExLlamaV2Config
 from exllamav2.fasttensors import STFile
 

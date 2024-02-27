@@ -1,84 +1,86 @@
-from exllamav2.fasttensors import STFile
-import os
-import glob
 import json
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+from exllamav2.fasttensors import STFile
 
 
+@dataclass
 class ExLlamaV2Config:
-    debug_mode = False
-    model_dir: str = None  # Directory containing model files
-
-    max_seq_len: int = 2048  # Maximum sequence length. Sequences longer than this will throw an exception
-    max_batch_size: int = 1  # Maximum size of batches to process
-    max_input_len: int = 2048  # Maximum length of input IDs in a single forward pass. Sequences longer than this will be processed in multiple steps
-    max_attention_size: int = (
-        2048**2
-    )  # Sequences will be processed in chunks to keep the size of the attention weights matrix <= this
-
-    scale_pos_emb: float = 1.0  # Factor by which to scale positional embeddings, e.g. for 4096-token sequence use a scaling factor of 2.0, requires finetuned model or LoRA
-    scale_alpha_value: float = (
-        1.0  # Alpha value for NTK RoPE scaling. Similar to compress_pos_emb but works without finetuned model
-    )
-
-    no_flash_attn: bool = False  # Implementation will automatically use flash-attn-2 when available
+    debug_mode: bool = False
+    # Directory containing model files
+    model_dir: Optional[Path] = None
+    # Maximum sequence length. Sequences longer than this will throw an exception
+    max_seq_len: int = 2048
+    # Maximum size of batches to process
+    max_batch_size: int = 1
+    # Maximum length of input IDs in a single forward pass. Sequences longer than this will be processed in multiple steps
+    max_input_len: int = 2048
+    # Sequences will be processed in chunks to keep the size of the attention weights matrix <= this
+    max_attention_size: int = 2048**2
+    # Factor by which to scale positional embeddings, e.g. for 4096-token sequence use a scaling factor of 2.0, requires finetuned model or LoRA
+    scale_pos_emb: float = 1.0
+    # Alpha value for NTK RoPE scaling. Similar to compress_pos_emb but works without finetuned model
+    scale_alpha_value: float = 1.0
+    # Implementation will automatically use flash-attn-2 when available
+    no_flash_attn: bool = False
 
     # Loaded/set by .prepare():
+    architecture: str = field(init=False)
 
-    architecture: str
+    model_config: str = field(init=False)
+    tensor_file_map: dict = field(init=False)
+    tensor_files: list = field(init=False)
 
-    model_config: str
-    tensor_file_map: dict
-    tensor_files: list
+    tokenizer_path: str = field(init=False)
 
-    tokenizer_path: str
+    bos_token_id: int = field(init=False)
+    eos_token_id: int = field(init=False)
+    pad_token_id: int = field(init=False)
 
-    bos_token_id: int
-    eos_token_id: int
-    pad_token_id: int
-
-    hidden_size: int
-    initializer_range: int
-    intermediate_size: int
-    num_attention_heads: int
-    num_key_value_heads: int
-    num_key_value_groups: int
-    num_hidden_layers: int
-    rms_norm_eps: float
-    vocab_size: int
-    rotary_embedding_base: float = (
-        10000.0  # Constant for all Llama models, nodified by .prepare() if scale_alpha_value != 1.0
-    )
-    head_dim: int = 128  # Constant for all Llama models, except 3b
+    hidden_size: int = field(init=False)
+    initializer_range: int = field(init=False)
+    intermediate_size: int = field(init=False)
+    num_attention_heads: int = field(init=False)
+    num_key_value_heads: int = field(init=False)
+    num_key_value_groups: int = field(init=False)
+    num_hidden_layers: int = field(init=False)
+    rms_norm_eps: float = field(init=False)
+    vocab_size: int = field(init=False)
+    # Constant for all Llama models, nodified by .prepare() if scale_alpha_value != 1.0
+    rotary_embedding_base: float = field(default=10000.0, init=False)
+    # Constant for all Llama models, except 3b
+    head_dim: int = field(default=128, init=False)
     num_experts: int = None
     num_experts_per_token: int = None
     attention_bias_qkv: bool = False
     attention_bias_o: bool = False
-
     checkpoint_fused_mlp: bool = False
 
-    fasttensors: bool = False  # Experimental, Linux only
-
-    def __init__(self):
-        pass
-
-    # Set low-mem options
+    # Experimental, Linux only
+    fasttensors: bool = False
 
     def set_low_mem(self):
+        """Set low-memory options for processing large sequences."""
         self.max_input_len = 1024
         self.max_attention_size = 1024**2
 
-    # Populate config with required files from model_dir
-
     def prepare(self, no_tensors=False):
-        assert self.model_dir is not None, "No model_dir specified in ExLlamaV2Config"
-        assert os.path.exists(self.model_dir), "Can't find " + self.model_dir
+        """Populate config with required files from model_dir"""
+        if self.model_dir is None:
+            raise ValueError(" ## No model_dir specified in ExLlamaV2Config")
+        self.model_dir = Path(self.model_dir).resolve()
+
+        if not self.model_dir.exists() and self.model_dir.is_dir():
+            raise FileNotFoundError(f" ## Can't find model dir: {self.model_dir}")
 
         # Load config.json
+        self.model_config = self.model_dir / "config.json"
+        if not self.model_config.is_file():
+            raise FileNotFoundError(f" ## Can't find model config: {self.model_config}")
 
-        self.model_config = os.path.join(self.model_dir, "config.json")
-        assert os.path.exists(self.model_config), "Can't find " + self.model_config
-
-        with open(self.model_config, encoding="utf8") as f:
+        with self.model_config.open(encoding="utf8") as f:
             read_config = json.load(f)
 
             layer_keys = []
@@ -198,9 +200,7 @@ class ExLlamaV2Config:
             return
 
         self.tensor_file_map = {}
-
-        st_pattern = os.path.join(self.model_dir, "*.safetensors")
-        self.tensor_files = glob.glob(st_pattern)
+        self.tensor_files = [x for x in self.model_dir.iterdir() if x.suffix.lower() == ".safetensors"]
 
         if len(self.tensor_files) == 0:
             raise ValueError(f" ## No .safetensors files found in {self.model_dir}")

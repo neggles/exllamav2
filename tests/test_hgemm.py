@@ -1,6 +1,8 @@
-import torch
-from exllamav2.ext import exllamav2_ext as ext_c
 import random
+
+import torch
+
+from exllamav2.ext import exllamav2_ext as ext_c
 
 shapes = [  # m, k, n
     [1, 16, 1],

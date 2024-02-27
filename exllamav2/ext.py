@@ -1,13 +1,14 @@
-import torch
-from torch.utils.cpp_extension import load
 import os
 import sys
+
+import torch
+from torch.utils.cpp_extension import load
 
 extension_name = "exllamav2_ext"
 verbose = False
 ext_debug = False
 
-windows = os.name == "nt"
+is_windows = sys.platform == "win32"
 
 build_jit = False
 try:
@@ -18,7 +19,7 @@ except ModuleNotFoundError:
 if build_jit:
     # Kludge to get compilation working on Windows
 
-    if windows:
+    if is_windows:
 
         def find_msvc():
             # Possible locations for MSVC, in order of preference
@@ -69,7 +70,7 @@ if build_jit:
 
     # gcc / cl.exe flags
 
-    extra_cflags = ["/Ox"] if windows else ["-O3"]
+    extra_cflags = ["/Ox"] if is_windows else ["-O3"]
 
     if ext_debug:
         extra_cflags += ["-ftime-report", "-DTORCH_USE_CUDA_DSA"]
@@ -86,7 +87,7 @@ if build_jit:
 
     extra_ldflags = []
 
-    if windows:
+    if is_windows:
         extra_ldflags += ["cublas.lib"]
         if sys.base_prefix != sys.prefix:
             extra_ldflags += [f"/LIBPATH:{os.path.join(sys.base_prefix, 'libs')}"]

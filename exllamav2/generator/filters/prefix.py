@@ -1,4 +1,4 @@
-from exllamav2.generator.filters.base import ExLlamaV2Filter
+from .base import ExLlamaV2Filter
 
 
 class ExLlamaV2PrefixFilter(ExLlamaV2Filter):

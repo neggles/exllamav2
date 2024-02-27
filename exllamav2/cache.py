@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import torch
 from torch import Tensor
 
 from exllamav2.ext import exllamav2_ext as ext_c
-from exllamav2.model import ExLlamaV2
+
+if TYPE_CHECKING:
+    from exllamav2.model import ExLlamaV2
 
 
 class ExLlamaV2CacheBase(ABC):
     def __init__(
         self,
-        model: ExLlamaV2,
+        model: "ExLlamaV2",
         batch_size: int,
         max_seq_len: int = -1,
         copy_from: Optional["ExLlamaV2CacheBase"] = None,
@@ -166,7 +168,7 @@ class ExLlamaV2CacheBase(ABC):
 class ExLlamaV2Cache(ExLlamaV2CacheBase):
     def __init__(
         self,
-        model: ExLlamaV2,
+        model: "ExLlamaV2",
         batch_size: int,
         max_seq_len: int = -1,
         copy_from: Optional[ExLlamaV2CacheBase] = None,
@@ -205,7 +207,7 @@ class ExLlamaV2Cache(ExLlamaV2CacheBase):
 class ExLlamaV2Cache_8bit(ExLlamaV2CacheBase):
     def __init__(
         self,
-        model: ExLlamaV2,
+        model: "ExLlamaV2",
         batch_size: int,
         max_seq_len: int = -1,
         copy_from: Optional[ExLlamaV2CacheBase] = None,

@@ -2,45 +2,38 @@ import gc
 import math
 
 import torch
+from torch import Tensor
 
-from exllamav2.attn import ExLlamaV2Attention
-from exllamav2.cache import ExLlamaV2CacheBase
-from exllamav2.compat import safe_move_tensor
-from exllamav2.config import ExLlamaV2Config
-from exllamav2.embedding import ExLlamaV2Embedding
-from exllamav2.fasttensors import cleanup_stfiles
-from exllamav2.layernorm import ExLlamaV2LayerNorm
-from exllamav2.linear import ExLlamaV2Linear
-from exllamav2.mlp import ExLlamaV2MLP
-from exllamav2.moe_mlp import ExLlamaV2MoEMLP
-from exllamav2.rmsnorm import ExLlamaV2RMSNorm
+from .attn import ExLlamaV2Attention
+from .cache import ExLlamaV2CacheBase
+from .compat import safe_move_tensor
+from .config import ExLlamaV2Config
+from .embedding import ExLlamaV2Embedding
+from .fasttensors import cleanup_stfiles
+from .layernorm import ExLlamaV2LayerNorm
+from .linear import ExLlamaV2Linear
+from .mlp import ExLlamaV2MLP
+from .moe_mlp import ExLlamaV2MoEMLP
+from .rmsnorm import ExLlamaV2RMSNorm
 
 
-def _torch_device(idx):
+def _torch_device(idx: int) -> torch.device:
     if idx == -1:
-        return "cpu"
-    return f"cuda:{idx}"
+        return torch.device("cpu")
+    return torch.device(f"cuda:{idx}")
 
 
 class ExLlamaV2DeviceTensors:
-    model = None
-    device_idx: int
-    ready: bool
+    def __init__(self, model: "ExLlamaV2", device_idx: int, scratch_bytes: int):
+        self.model: ExLlamaV2 = model
+        self.device_idx: int = device_idx
+        self.ready: bool = False
+        self.scratch_bytes: int = scratch_bytes
+        self.scratch_idx: int = 0
 
-    scratch_bytes: int
-    scratch_idx: int
-
-    sin: torch.tensor
-    cos: torch.tensor
-
-    scratch: torch.tensor = None
-
-    def __init__(self, model, device_idx, scratch_bytes):
-        self.model = model
-        self.device_idx = device_idx
-        self.ready = False
-        self.scratch_bytes = scratch_bytes
-        self.scratch_idx = 0
+        self.sin: Tensor = None
+        self.cos: Tensor = None
+        self.scratch: Tensor = None
 
     def prepare(self, scratch):
         self.prepare_sincos()

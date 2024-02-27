@@ -2,7 +2,7 @@ import argparse
 import math
 
 import torch
-import torch.nn.functional as F
+from torch.nn import functional as F
 
 from exllamav2 import (
     ExLlamaV2,

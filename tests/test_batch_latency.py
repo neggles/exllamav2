@@ -1,17 +1,11 @@
-import sys
-import os
+import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
 
 from exllamav2 import (
     ExLlamaV2,
     ExLlamaV2Config,
-    # ExLlamaV2Cache,
-    # ExLlamaV2Tokenizer,
 )
-
-import torch
-import time
 
 # model_directory = "/mnt/str/models/_gptq/llama-7b-4bit-128g/"
 # model_directory = "/mnt/str/models/llama2-7b-exl2/4.0bpw"

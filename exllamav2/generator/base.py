@@ -8,7 +8,8 @@ from exllamav2 import (
     ExLlamaV2Lora,
     ExLlamaV2Tokenizer,
 )
-from exllamav2.generator import ExLlamaV2Sampler
+
+from .sampler import ExLlamaV2Sampler
 
 
 class ExLlamaV2BaseGenerator:
