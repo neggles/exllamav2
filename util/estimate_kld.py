@@ -2,13 +2,13 @@ import math
 import os
 
 import torch
-from conversion.qparams import QParams
-from conversion.qparams_stats import qparams_stats
-from conversion.tokenize import get_tokens
 from safetensors import safe_open
 from torch.nn import functional as F
 
 from exllamav2 import ExLlamaV2, ExLlamaV2Config, ExLlamaV2Tokenizer
+from exllamav2.conversion import qparams_stats
+from exllamav2.conversion.qparams import QParams
+from exllamav2.conversion.tokenize import get_tokens
 
 model_dir = "/mnt/str/models/_exl2/llama2-7b/"
 tensor_dir = "/mnt/str/models/_exl2/__giga/out_tensor/"

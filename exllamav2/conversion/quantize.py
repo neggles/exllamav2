@@ -3,8 +3,6 @@ import math
 import os
 
 import torch
-from conversion.adaptivegptq import AdaptiveGPTQ
-from conversion.qparams import QParams, qparams_headoptions
 from safetensors import safe_open
 from safetensors.torch import save_file
 from torch.nn import functional as F
@@ -17,6 +15,9 @@ from exllamav2.model import (
     ExLlamaV2MoEMLP,
     ExLlamaV2RMSNorm,
 )
+
+from .adaptivegptq import AdaptiveGPTQ
+from .qparams import QParams, qparams_headoptions
 
 
 def list_live_tensors():

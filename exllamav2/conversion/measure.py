@@ -8,8 +8,6 @@ import sys
 import time
 
 import torch
-from conversion.adaptivegptq import AdaptiveGPTQ
-from conversion.qparams import get_qparams_reduced, qparams_attn, qparams_mlp
 from safetensors import safe_open
 from safetensors.torch import save_file
 from torch import nn
@@ -23,6 +21,9 @@ from exllamav2.model import (
     ExLlamaV2MoEMLP,
     ExLlamaV2RMSNorm,
 )
+
+from .adaptivegptq import AdaptiveGPTQ
+from .qparams import get_qparams_reduced, qparams_attn, qparams_mlp
 
 interrupted = False
 
