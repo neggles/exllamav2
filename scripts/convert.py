@@ -57,241 +57,243 @@ parser.add_argument(
     "-ml", "--measurement_length", type=int, default=2048, help="Max no. tokens per sample when measuring"
 )
 
-args = parser.parse_args()
 
-# Check some args
+def main(args: argparse.Namespace):
+    # Check some args
 
-if not args.in_dir:
-    print(" ## Please specify input model directory (-i, --in_dir)")
-    sys.exit()
-
-if not args.out_dir:
-    print(" ## Please specify output/working directory (-o, --out_dir)")
-    sys.exit()
-
-if args.length > 2048 or args.measurement_length > 2048:
-    print(" !! Warning: calibration rows > 2048 tokens may result in excessive VRAM use")
-
-if args.head_bits not in qparams_headoptions:
-    print(f" ## Error: {args.head_bits} is not a supported option for head layer bitrate")
-    sys.exit()
-
-if args.output_measurement is not None and args.compile_full is not None:
-    print(" ## Conflicting options: --output_measurement and --compile_full")
-    sys.exit()
-
-if args.bits < 2 or args.bits > 8:
-    print(f" !! Warning: target bitrate {args.bits} will likely not be attainable")
-
-if not os.path.exists(args.out_dir):
-    print(f" ## Error: Directory not found: {args.out_dir}")
-    sys.exit()
-
-# Create config
-
-config = ExLlamaV2Config()
-config.model_dir = args.in_dir
-config.qkv_embed = False
-config.prepare()
-
-# Tokenizer
-
-tokenizer = ExLlamaV2Tokenizer(config)
-
-# Create job
-
-
-def save_job():
-    global job_file, job
-    with open(job_file, "w", encoding="utf8") as f:
-        f.write(json.dumps(job, indent=4))
-
-
-job_file = os.path.join(args.out_dir, "job_new.json")
-
-if args.no_resume or not os.path.exists(job_file):
-    print(" -- Beginning new job")
-    if len(os.listdir(args.out_dir)) != 0:
-        print(f" !! Warning: Output directory is not empty: {args.out_dir}")
-
-        if args.no_resume:
-            print(f" !! Cleaning output directory: {args.out_dir}")
-            for filename in os.listdir(args.out_dir):
-                file_path = os.path.join(args.out_dir, filename)
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-
-output_measurement = args.output_measurement
-if output_measurement is not None:
-    if os.path.isdir(output_measurement):
-        output_measurement = os.path.join(output_measurement, "measurement.json")
-
-job = {
-    "in_dir": args.in_dir,
-    "out_dir": args.out_dir,
-    "cal_dataset": args.cal_dataset,
-    "bits": args.bits,
-    "dataset_rows": args.dataset_rows,
-    "measurement_rows": args.measurement_rows,
-    "length": args.length,
-    "measurement_length": args.measurement_length,
-    "head_bits": args.head_bits,
-    "shard_size": args.shard_size if args.shard_size > 0 else 1024**3,  # 1 PB = unlimited,
-    "compile_full": args.compile_full,
-    "rope_scale": args.rope_scale,
-    "rope_alpha": args.rope_alpha,
-    "output_measurement": output_measurement,
-    "progress": "begin",
-}
-
-if args.measurement is not None:
-    with open(args.measurement, "r", encoding="utf8") as f:
-        imp_measurement = json.load(f)
-        job["measurement"] = imp_measurement["measurement"]
-        job["last_module_idx"] = imp_measurement["last_module_idx"]
-        job["reuse_measurement"] = args.measurement
-
-# Resume existing job
-
-if args.no_resume or not os.path.exists(job_file):
-    pass
-
-else:
-    print(" -- Resuming job")
-    print(" !! Note: Overriding options with settings from existing job")
-
-    with open(job_file, "r", encoding="utf8") as f:
-        resume_job = json.load(f)
-
-    # Override keys in existing job
-    del resume_job["out_dir"]
-
-    job.update(resume_job)
-    if "invalid" in job:
-        print(" ** Error: Corrupted job")
+    if not args.in_dir:
+        print(" ## Please specify input model directory (-i, --in_dir)")
         sys.exit()
 
-# Feedback
+    if not args.out_dir:
+        print(" ## Please specify output/working directory (-o, --out_dir)")
+        sys.exit()
 
-print(f" -- Input: {job['in_dir']}")
-print(f" -- Output: {job['out_dir']}")
-if job.get("cal_dataset"):
-    print(
-        f" -- Calibration dataset: {job['cal_dataset']}, {job['dataset_rows']} / {job['measurement_rows']} rows, {job['length']} tokens per sample"
-    )
-else:
-    print(" -- Using default calibration dataset")
-if job["output_measurement"] is None:
-    print(f" -- Target bits per weight: {job['bits']} (decoder), {job['head_bits']} (head)")
-    print(f" -- Max shard size: {job['shard_size']} MB")
-else:
-    print(f" -- Measurement will be saved to {job['output_measurement']}")
-    print(" !! Conversion script will end after measurement pass")
+    if args.length > 2048 or args.measurement_length > 2048:
+        print(" !! Warning: calibration rows > 2048 tokens may result in excessive VRAM use")
 
+    if args.head_bits not in qparams_headoptions:
+        print(f" ## Error: {args.head_bits} is not a supported option for head layer bitrate")
+        sys.exit()
 
-if job["rope_scale"]:
-    print(f" -- RoPE scale: {job['rope_scale']:.2f}")
-if job["rope_alpha"]:
-    print(f" -- RoPE alpha: {job['rope_alpha']:.2f}")
+    if args.output_measurement is not None and args.compile_full is not None:
+        print(" ## Conflicting options: --output_measurement and --compile_full")
+        sys.exit()
 
-# Make sure subfolders exist
+    if args.bits < 2 or args.bits > 8:
+        print(f" !! Warning: target bitrate {args.bits} will likely not be attainable")
 
-if job.get("compile_full"):
-    print(f" -- Full model will be compiled to: {job['compile_full']}")
-    if os.path.exists(job["compile_full"]):
-        if not os.path.isdir(job["compile_full"]):
-            print(f" ## Error: Output path {job['compile_full']} exists but is not a directory")
+    if not os.path.exists(args.out_dir):
+        print(f" ## Error: Directory not found: {args.out_dir}")
+        sys.exit()
+
+    # Create config
+
+    config = ExLlamaV2Config()
+    config.model_dir = args.in_dir
+    config.qkv_embed = False
+    config.prepare()
+
+    # Tokenizer
+
+    tokenizer = ExLlamaV2Tokenizer(config)
+
+    # Create job
+
+    def save_job():
+        global job_file, job
+        with open(job_file, "w", encoding="utf8") as f:
+            f.write(json.dumps(job, indent=4))
+
+    job_file = os.path.join(args.out_dir, "job_new.json")
+
+    if args.no_resume or not os.path.exists(job_file):
+        print(" -- Beginning new job")
+        if len(os.listdir(args.out_dir)) != 0:
+            print(f" !! Warning: Output directory is not empty: {args.out_dir}")
+
+            if args.no_resume:
+                print(f" !! Cleaning output directory: {args.out_dir}")
+                for filename in os.listdir(args.out_dir):
+                    file_path = os.path.join(args.out_dir, filename)
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+
+    output_measurement = args.output_measurement
+    if output_measurement is not None:
+        if os.path.isdir(output_measurement):
+            output_measurement = os.path.join(output_measurement, "measurement.json")
+
+    job = {
+        "in_dir": args.in_dir,
+        "out_dir": args.out_dir,
+        "cal_dataset": args.cal_dataset,
+        "bits": args.bits,
+        "dataset_rows": args.dataset_rows,
+        "measurement_rows": args.measurement_rows,
+        "length": args.length,
+        "measurement_length": args.measurement_length,
+        "head_bits": args.head_bits,
+        "shard_size": args.shard_size if args.shard_size > 0 else 1024**3,  # 1 PB = unlimited,
+        "compile_full": args.compile_full,
+        "rope_scale": args.rope_scale,
+        "rope_alpha": args.rope_alpha,
+        "output_measurement": output_measurement,
+        "progress": "begin",
+    }
+
+    if args.measurement is not None:
+        with open(args.measurement, "r", encoding="utf8") as f:
+            imp_measurement = json.load(f)
+            job["measurement"] = imp_measurement["measurement"]
+            job["last_module_idx"] = imp_measurement["last_module_idx"]
+            job["reuse_measurement"] = args.measurement
+
+    # Resume existing job
+
+    if args.no_resume or not os.path.exists(job_file):
+        pass
+
+    else:
+        print(" -- Resuming job")
+        print(" !! Note: Overriding options with settings from existing job")
+
+        with open(job_file, "r", encoding="utf8") as f:
+            resume_job = json.load(f)
+
+        # Override keys in existing job
+        del resume_job["out_dir"]
+
+        job.update(resume_job)
+        if "invalid" in job:
+            print(" ** Error: Corrupted job")
             sys.exit()
-        if len(os.listdir(job["compile_full"])) > 0:
-            print(f" !! Warning: Output path {job['compile_full']} exists but is not empty")
 
-out_tensor_dir = os.path.join(job["out_dir"], "out_tensor")
-if not os.path.exists(out_tensor_dir):
-    os.makedirs(out_tensor_dir)
+    # Feedback
 
-# Set scaling for input model
+    print(f" -- Input: {job['in_dir']}")
+    print(f" -- Output: {job['out_dir']}")
+    if job.get("cal_dataset"):
+        print(
+            f" -- Calibration dataset: {job['cal_dataset']}, {job['dataset_rows']} / {job['measurement_rows']} rows, {job['length']} tokens per sample"
+        )
+    else:
+        print(" -- Using default calibration dataset")
+    if job["output_measurement"] is None:
+        print(f" -- Target bits per weight: {job['bits']} (decoder), {job['head_bits']} (head)")
+        print(f" -- Max shard size: {job['shard_size']} MB")
+    else:
+        print(f" -- Measurement will be saved to {job['output_measurement']}")
+        print(" !! Conversion script will end after measurement pass")
 
-if job["rope_scale"] is not None:
-    config.scale_pos_emb = job["rope_scale"]
-if job["rope_alpha"] is not None:
-    config.scale_alpha_value = job["rope_alpha"]
+    if job["rope_scale"]:
+        print(f" -- RoPE scale: {job['rope_scale']:.2f}")
+    if job["rope_alpha"]:
+        print(f" -- RoPE alpha: {job['rope_alpha']:.2f}")
 
-# Create model without loading weights
+    # Make sure subfolders exist
 
-model = ExLlamaV2(config)
-model.load(lazy=True)
+    if job.get("compile_full"):
+        print(f" -- Full model will be compiled to: {job['compile_full']}")
+        if os.path.exists(job["compile_full"]):
+            if not os.path.isdir(job["compile_full"]):
+                print(f" ## Error: Output path {job['compile_full']} exists but is not a directory")
+                sys.exit()
+            if len(os.listdir(job["compile_full"])) > 0:
+                print(f" !! Warning: Output path {job['compile_full']} exists but is not empty")
 
-# Do the things
+    out_tensor_dir = os.path.join(job["out_dir"], "out_tensor")
+    if not os.path.exists(out_tensor_dir):
+        os.makedirs(out_tensor_dir)
 
-save_job()
+    # Set scaling for input model
 
-while True:
-    progress = job["progress"]
+    if job["rope_scale"] is not None:
+        config.scale_pos_emb = job["rope_scale"]
+    if job["rope_alpha"] is not None:
+        config.scale_alpha_value = job["rope_alpha"]
 
-    if progress == "begin":
-        if "reuse_measurement" in job:
-            print(f" -- Reusing measurement: {job['reuse_measurement']}")
-            job["progress"] = "optimize"
+    # Create model without loading weights
+
+    model = ExLlamaV2(config)
+    model.load(lazy=True)
+
+    # Do the things
+
+    save_job()
+
+    while True:
+        progress = job["progress"]
+
+        if progress == "begin":
+            if "reuse_measurement" in job:
+                print(f" -- Reusing measurement: {job['reuse_measurement']}")
+                job["progress"] = "optimize"
+                save_job()
+
+            else:
+                print(" -- Tokenizing samples (measurement)...")
+                tokenize(job, save_job, tokenizer, measure=True)
+                job["progress"] = "initial_embeddings"
+                save_job()
+
+        if progress == "initial_embeddings":
+            print(" -- Token embeddings (measurement)...")
+            embeddings(job, save_job, model)
+            job["progress"] = "measure_quant"
             save_job()
 
-        else:
-            print(" -- Tokenizing samples (measurement)...")
-            tokenize(job, save_job, tokenizer, measure=True)
-            job["progress"] = "initial_embeddings"
+        if progress == "measure_quant":
+            print(" -- Measuring quantization impact...")
+            status = measure_quant(job, save_job, model)  # capturing the graceful exits
+            if status == "interrupted":
+                print("Process interrupted. Exiting gracefully.")
+                save_job()
+                sys.exit(1)
+            if job["output_measurement"] is None:
+                job["progress"] = "optimize"
+            else:
+                job["progress"] = "finished"
             save_job()
 
-    if progress == "initial_embeddings":
-        print(" -- Token embeddings (measurement)...")
-        embeddings(job, save_job, model)
-        job["progress"] = "measure_quant"
-        save_job()
-
-    if progress == "measure_quant":
-        print(" -- Measuring quantization impact...")
-        status = measure_quant(job, save_job, model)  # capturing the graceful exits
-        if status == "interrupted":
-            print("Process interrupted. Exiting gracefully.")
+        if progress == "optimize":
+            print(" -- Optimizing...")
+            optimize(job, save_job, model)
+            job["progress"] = "tokens_cal"
             save_job()
-            sys.exit(1)
-        if job["output_measurement"] is None:
-            job["progress"] = "optimize"
-        else:
+
+        if progress == "tokens_cal":
+            print(" -- Tokenizing samples...")
+            tokenize(job, save_job, tokenizer)
+            job["progress"] = "embeddings"
+            save_job()
+
+        if progress == "embeddings":
+            print(" -- Token embeddings again...")
+            embeddings(job, save_job, model)
+            job["progress"] = "quant"
+            save_job()
+
+        if progress == "quant":
+            print(" -- Quantizing...")
+            quant(job, save_job, model)
+            job["progress"] = "compile"
+            save_job()
+
+        if progress == "compile":
+            print(" -- Compiling output file...")
+            compile_model(job, save_job, model)
             job["progress"] = "finished"
-        save_job()
+            save_job()
 
-    if progress == "optimize":
-        print(" -- Optimizing...")
-        optimize(job, save_job, model)
-        job["progress"] = "tokens_cal"
-        save_job()
+        if progress == "finished":
+            break
 
-    if progress == "tokens_cal":
-        print(" -- Tokenizing samples...")
-        tokenize(job, save_job, tokenizer)
-        job["progress"] = "embeddings"
-        save_job()
+    print(" -- Finished")
 
-    if progress == "embeddings":
-        print(" -- Token embeddings again...")
-        embeddings(job, save_job, model)
-        job["progress"] = "quant"
-        save_job()
 
-    if progress == "quant":
-        print(" -- Quantizing...")
-        quant(job, save_job, model)
-        job["progress"] = "compile"
-        save_job()
-
-    if progress == "compile":
-        print(" -- Compiling output file...")
-        compile_model(job, save_job, model)
-        job["progress"] = "finished"
-        save_job()
-
-    if progress == "finished":
-        break
-
-print(" -- Finished")
+if __name__ == "__main__":
+    args = parser.parse_args()
+    main(args)
