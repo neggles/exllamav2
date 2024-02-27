@@ -1,18 +1,13 @@
 import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
-    ExLlamaV2Tokenizer,
+    ExLlamaV2Config,
     ExLlamaV2Lora,
+    ExLlamaV2Tokenizer,
 )
-
-from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
-
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler, ExLlamaV2StreamingGenerator
 
 # Initialize model and cache
 

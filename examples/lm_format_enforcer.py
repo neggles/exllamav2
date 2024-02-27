@@ -1,29 +1,24 @@
+import json
 import sys
-import os
+import time
+from typing import Annotated, Literal
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from pydantic import BaseModel, conlist
-from typing import Literal
-from lmformatenforcer.integrations.exllamav2 import ExLlamaV2TokenEnforcerFilter
+import annotated_types
 from lmformatenforcer import JsonSchemaParser
+from lmformatenforcer.integrations.exllamav2 import ExLlamaV2TokenEnforcerFilter
+from pydantic import BaseModel
 
 from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
+    ExLlamaV2Config,
     ExLlamaV2Tokenizer,
 )
-
 from exllamav2.generator import (
-    ExLlamaV2StreamingGenerator,
     ExLlamaV2Sampler,
+    ExLlamaV2StreamingGenerator,
 )
-
 from exllamav2.generator.filters import ExLlamaV2PrefixFilter
-
-import time
-import json
 
 # Initialize model and cache
 
@@ -120,7 +115,7 @@ class SuperheroAppearance(BaseModel):
 class Superhero(BaseModel):
     name: str
     secret_identity: str
-    superpowers: conlist(str, max_length=5)
+    superpowers: Annotated[list[str], annotated_types.Len(max_length=5)]
     first_appearance: SuperheroAppearance
     gender: Literal["male", "female"]
 

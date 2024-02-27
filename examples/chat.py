@@ -1,24 +1,20 @@
+import argparse
 import sys
-import os
 import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
 
 from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
     ExLlamaV2Cache_8bit,
+    ExLlamaV2Config,
     model_init,
 )
+from exllamav2.generator import ExLlamaV2Sampler, ExLlamaV2StreamingGenerator
 
-import argparse
-import torch
-
-from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
-
-from chat_formatting import CodeBlockFormatter
-from chat_prompts import prompt_formats
+from .chat_formatting import CodeBlockFormatter
+from .chat_prompts import prompt_formats
 
 prompt_formats_list = list(prompt_formats.keys())
 

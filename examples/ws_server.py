@@ -1,16 +1,10 @@
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import argparse
 
 from exllamav2 import (
     ExLlamaV2Cache,
     model_init,
 )
-
 from exllamav2.server import ExLlamaV2WebSocketServer
-
-import argparse
 
 # Configure and init model
 

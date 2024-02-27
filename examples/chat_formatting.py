@@ -1,15 +1,12 @@
 import re
-import regex
+import shutil
 from io import StringIO
 
+import regex
 from pygments import highlight
 from pygments.formatters.terminal import TerminalFormatter
 from pygments.lexers import get_lexer_by_name, guess_lexer
-
-# from pygments.styles.default import DefaultStyle
 from pygments.util import ClassNotFound
-
-import shutil
 
 # List of languages to detect after ``` delimiter
 

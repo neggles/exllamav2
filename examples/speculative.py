@@ -1,19 +1,15 @@
 import sys
-import os
+import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import torch
 
 from exllamav2 import (
     ExLlamaV2,
-    ExLlamaV2Config,
     ExLlamaV2Cache,
+    ExLlamaV2Config,
     ExLlamaV2Tokenizer,
 )
-
-from exllamav2.generator import ExLlamaV2StreamingGenerator, ExLlamaV2Sampler
-
-import time
-import torch
+from exllamav2.generator import ExLlamaV2Sampler, ExLlamaV2StreamingGenerator
 
 # Initialize model and draft model
 
