@@ -250,3 +250,12 @@ exllamav2_ext.cpython-*.so
 
 # but keep examples
 !*.example
+
+# local misc and temp dirs
+/misc
+/temp
+
+# logs and models
+/logs
+/models
+/data
