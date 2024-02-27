@@ -1,32 +1,30 @@
+import argparse
+import math
+
+# from exllamav2.mlp import set_catch
+import sys
+import time
+
+import torch
+import torch.nn.functional as F
+
 from exllamav2 import (
-    ExLlamaV2Config,
     ExLlamaV2Cache,
     ExLlamaV2Cache_8bit,
+    ExLlamaV2Config,
     model_init,
 )
-
-from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
-
 from exllamav2.attn import ExLlamaV2Attention
+from exllamav2.conversion.tokenize import get_tokens
+from exllamav2.generator import ExLlamaV2BaseGenerator, ExLlamaV2Sampler
 from exllamav2.mlp import ExLlamaV2MLP
 from exllamav2.moe_mlp import ExLlamaV2MoEMLP
 
-import argparse
-import math
-import time
-import torch
-import torch.nn.functional as F
-from conversion.tokenize import get_tokens
-
-# from exllamav2.mlp import set_catch
-
-import sys
-
 torch.cuda._lazy_init()
-torch.set_printoptions(precision=10)
+torch.set_printoptions(precision=8)
 # torch.backends.cuda.matmul.allow_tf32 = True
 # torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
-# torch.set_float32_matmul_precision("medium")
+torch.set_float32_matmul_precision("high")
 
 parser = argparse.ArgumentParser(description="Test inference on ExLlamaV2 model")
 parser.add_argument("-ed", "--eval_dataset", type=str, help="Perplexity evaluation dataset (.parquet file)")
@@ -251,7 +249,12 @@ if args.eval_dataset or args.standard_perplexity:
             if args.eval_dataset:
                 print(f" !! Note, overriding specified --eval_dataset with {args.standard_perplexity}")
 
-            from datasets import load_dataset
+            try:
+                from datasets import load_dataset  # type: ignore
+            except ImportError as e:
+                raise ImportError(
+                    " !! Please install the datasets library to use standard perplexity tests"
+                ) from e
 
             if args.standard_perplexity == "wiki2":
                 ds = "wikitext"
